@@ -927,7 +927,11 @@ flags.DEFINE_float('similarity_alpha', 0.5, 'predictiveness - similarity_alpha')
 flags.DEFINE_float('ema_lambda', 0.1, 'predictiveness - ema_lambda')
 flags.DEFINE_integer('train_beta_candidate_number', 50, 'predictiveness - train_beta_candidate_number')
 flags.DEFINE_integer('test_beta_candidate_number', 200, 'predictiveness - test_beta_candidate_number')
+flags.DEFINE_integer('accumulate_iteration', 2500, 'predictiveness - accumulate_iteration')
 
+flags.DEFINE_bool('adaptive_surrogate', False, 'adaptive surrogate gradients for predictiveness')
+flags.DEFINE_bool('sparsity_aware_gradient_consistency', False, 'adaptive surrogate gradient SGC')
+flags.DEFINE_bool('temporal_gradient_consistency', False, 'adaptive surrogate gradient TGC')
 #
 conf=flags.FLAGS
 conf(sys.argv)

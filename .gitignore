@@ -21,3 +21,5 @@ model_ckpt_test/
 model_ckpt_1/
 model_ckpt_distribution/
 snn_train_log/
+landscape/
+model_ckpt_/

@@ -84,12 +84,10 @@ def as_frame(events, labels, shape=None):
 # https://github.com/jackd/events-tfds
 # - vis.image.as_frames
 #
+
 def as_frames(
     events,
     labels,
-    #coords,
-    #time,
-    #polarity=None,
     dt=None,
     num_frames=None,
     shape=None,
@@ -112,6 +110,7 @@ def as_frames(
     #if time.size == 0:
     if time.shape[0]==0:
         raise ValueError("time must not be empty")
+
     t_start = time[0]
     t_end = time[-1]
     if dt is None:
@@ -158,48 +157,11 @@ def as_frames(
         crop_size =conf.cifar10_dvs_crop_img_size
     #crop_size = 50
 
-    if augmentation:
-        image_resize_size = crop_size
-    else:
-        image_resize_size = s
-    #images=tf.image.resize(images,(image_resize_size,image_resize_size),method='lanczos3')   # VGG, ResNet
-    #images=tf.image.resize(images,(image_resize_size,image_resize_size),method='bilinear')   # VGG, ResNet
-    if conf.model=='Spikformer':
+    if conf.model == 'Spikformer':
         images = images
     else:
-        images=tf.image.resize(images,(s,s),method='bilinear')   # VGG, ResNet
+        images = tf.image.resize(images,(s,s),method='bilinear')   # VGG, ResNet
 
-
-    if augmentation:
-        if conf.model=='Spikformer':
-            pad = 3
-        else:
-            pad = int((crop_size - s)/2)
-        #images = tf.image.pad_to_bounding_box(images, 3, 3, crop_size, crop_size)  # zero padding
-        images = tf.image.pad_to_bounding_box(images, pad, pad, crop_size, crop_size)  # zero padding
-        #images=tf.image.resize(images,(crop_size,crop_size),method='bilinear')   # VGG, ResNet
-        #images = tf.image.resize(images, (s, s))
-        #images = tf.image.random_crop(images, (num_frames,crop_size,crop_size,3))    # random crop
-        #images=tf.image.resize(images,(crop_size,crop_size),method='lanczos3')   # VGG, ResNet
-        images = tf.image.random_crop(images, (num_frames,s,s,2))    # random crop
-        images=tf.image.random_flip_left_right(images)
-        images=tf.image.random_flip_up_down(images)
-
-
-
-    # one-hot vectorization - label
+    images = tf.image.random_flip_left_right(images)
     labels = tf.one_hot(labels, num_class)
-
-    #
-    #idxs_frame = tf.cast(idxs_frame,dtype=tf.int32)
-    #i = np.minimum((time - t_start) // dt, num_frames - 1)
-
-    # fi = np.concatenate((i[:, np.newaxis], coords), axis=-1)
-    #x, y = coords.T
-    #if flip_up_down:
-    #    y = shape[0] - y - 1
-    # frame_data[(i, shape[0] - y - 1, x)] = colors
-    #frame_data[(i, y, x)] = colors
-    #images = tf.tensor_scatter_nd_update(images,idxs,colors)
-
     return (images, labels)

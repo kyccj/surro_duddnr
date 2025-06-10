@@ -1,128 +1,167 @@
 
-
-
-import tensorflow_datasets as tfds
-import events_tfds.events.cifar10_dvs
-#from events_tfds.vis.image import as_frames
-#from events_tfds.vis.image import as_frame
-from datasets.events.image import as_frames
-from datasets.events.image import as_frame
-from events_tfds.vis.anim import animate_frames
-
-
-
-from datasets.augmentation_cifar import cutmix
-
 import tensorflow as tf
-
-import matplotlib.pyplot as plt
 
 from config import config
 conf = config.flags
 
-def load():
-    #train_ds = tfds.load("cifar10_dvs", split="train", as_supervised=True)
 
+#RED = [255,0,0]    # on
+#GREEN = [0,255,0]  # off
 
-    batch_size = config.batch_size
-    num_parallel = tf.data.AUTOTUNE
+#RED = [1,0,0]
+#GREEN = [0,1,0]
 
-    if False:
-        for events, labels in train_ds:
-            print(events)
-            print(labels)
+#RED = [1,0]      # on
+#GREEN = [0,1]    # off
 
+RED = [0.1,0]      # on
+GREEN = [0,0.1]    # off
 
-        #train_ds = train_ds.map(lambda events, labels: )
+#RED = [1]      # on
+#GREEN = [-1]    # off
 
-    train_ratio = 0.9
-    train_ratio_percent = int(train_ratio*100)
-    #train_ds, train_ds_info = tfds.load("cifar10_dvs", split="train", as_supervised=True)
-    #train_ds = tfds.load("cifar10_dvs", split="train", as_supervised=True)
+#RED = [0.1]      # on
+#GREEN = [-0.1]    # off
 
-    #train_ds = tfds.load("cifar10_dvs", split="train[:"+str(train_ratio_percent)+"%]", as_supervised=True, shuffle_files=True)
-    #valid_ds = tfds.load("cifar10_dvs", split="train["+str(train_ratio_percent)+"%:]", as_supervised=True)
-
-    train_ds = tfds.load("cifar10_dvs", split="train[10%:]", as_supervised=True, shuffle_files=True)
-    valid_ds = tfds.load("cifar10_dvs", split="train[:10%]", as_supervised=True)
-
-
-    #train_ds = train_ds.map(lambda events, labels: as_frame())
-
-
-    num_frames = conf.time_step
-    conf.time_dim_size = num_frames
-
-    #image_shape = (128,128,3)
-    image_shape = (128,128,2)
-    #image_shape = (128,128,1)
-
-    # test
-    ##for events, labels in train_ds:
-    #ds, = train_ds.take(1)
-    #events = ds[0]
-    #labels = ds[1]
-    #as_frames(events,labels,shape=image_shape,num_frames=num_frames)
-    #assert False
-
-    #train_ds = train_ds.map(lambda events,labels: as_frame(events,labels,shape=image_shape))
-
-    #
-    #cifa10_dvs_img_size = conf.cifar10_dvs_img_size
-    #cifar10_dvs_crop_img_size = conf.cifkhh
-
-    # tf tensor version test
-    if False:
-    #if True:
-        for events, labels in train_ds:
-            #frames = as_frames(**{k: v.numpy() for k, v in events.items()}, num_frames=20)
-            coords = events['coords']
-            polarity = events['polarity']
-            frame = as_frames(events,labels,shape=image_shape,num_frames=num_frames,augmentation=True)
-            #print(labels.numpy())
-
-    #
-    train_ds = train_ds.map(lambda events,labels: as_frames(events,labels,shape=image_shape,num_frames=num_frames,augmentation=True))
-    # todo - cutmix
-#    if config.flags.data_aug_mix == 'mixup' or config.flags.data_aug_mix == 'cutmix':
-#        train_ds_1 = train_ds.map(lambda events,labels: as_frames(events,labels,shape=image_shape,num_frames=num_frames,augmentation=True))
-#        train_ds_2 = train_ds.map(lambda events,labels: as_frames(events,labels,shape=image_shape,num_frames=num_frames,augmentation=True))
-#        train_ds = tf.data.Dataset.zip((train_ds_1, train_ds_2))
-#        #train_ds_num = train_ds_1_num
 #
-#        train_ds = train_ds.map(
-#            lambda train_ds_1, train_ds_2: cutmix(train_ds_1, train_ds_2, dataset_name, input_size, input_size_pre_crop_ratio,
-#                                                  num_class, 1.0, input_prec_mode,preprocessor_input),
-#            num_parallel_calls=num_parallel)
-#    else:
-#        #train_ds, train_ds_num = default_load_train()
-#        train_ds = train_ds.map(lambda events,labels: as_frames(events,labels,shape=image_shape,num_frames=num_frames,augmentation=True))
+# this function is modified based on
+# https://github.com/jackd/events-tfds
+# - vis.image.as_frame
+#
+#def as_frame(coords, polarity, shape=None, image=None):
+def as_frame(events, labels, shape=None):
+    assert False, 'use as_frames or update code'
 
-    train_ds = train_ds.batch(batch_size, drop_remainder = True)
-    train_ds = train_ds.prefetch(num_parallel)
+    num_class=10
+    coords = events['coords']
+    polarity = events['polarity']
 
-    #valid_ds = valid_ds.map(lambda events,labels: as_frame(events,labels,shape=image_shape))
-    valid_ds = valid_ds.map(lambda events,labels: as_frames(events,labels,shape=image_shape,num_frames=num_frames))
-    valid_ds = valid_ds.batch(batch_size, drop_remainder = True)
-    valid_ds = valid_ds.prefetch(num_parallel)
+    if shape is None:
+        #shape = np.max(coords, axis=0)[-1::-1] + 1
+        #shape = tf.reduce_max(coords, axis=0)[-1::-1] + 1
+        # only 2D
+        shape = tf.reduce_max(coords, axis=0) + 1
+
+        assert False
+
+        #image_shape = (*(shape.numpy()),3)
+    else:
+        image_shape = shape
 
 
-    if False: # tfds events code
-    #if True: # tfds events code
-        for events, labels in train_ds:
-            #frames = as_frames(**{k: v.numpy() for k, v in events.items()}, num_frames=20)
-            coords = events['coords'].numpy()
-            polarity = events['polarity'].numpy()
-            frame = as_frame(coords,polarity)
-            #print(labels.numpy())
-            #print(tf.reduce_max(events["coords"], axis=0).numpy())
-            #anim = animate_frames(frames, fps=4)
+    #image = tf.zeros(image_shape,dtype=tf.uint8)
+    #images = tf.zeros(image_shape,dtype=tf.int32)
+    images = tf.zeros(image_shape,dtype=tf.float32)
 
-            print(labels.numpy())
-            plt.imshow(frame)
 
-    #valid_ds = train_ds
-    train_ds_num=10000*train_ratio
-    valid_ds_num=10000*(1-train_ratio)
+    #colors = tf.where(tf.expand_dims(polarity,1),[255,0,0],[0,255,0])
+    colors = tf.where(tf.expand_dims(polarity,1),RED,GREEN)
+    images = tf.tensor_scatter_nd_update(images,coords,colors)
 
-    return train_ds, valid_ds, valid_ds, train_ds_num, valid_ds_num, valid_ds_num
+
+    #x, y = coords.T
+    #if image is None:
+        #image = np.zeros((*shape, 3), dtype=np.uint8)
+    #image[(shape[0] - y - 1, x)] = np.where(polarity[:, np.newaxis], RED, GREEN)
+    #return image
+
+    # resize image
+    s=32
+    images = tf.image.resize(images, (s, s))
+
+
+    # one-hot vectorization - label
+    labels = tf.one_hot(labels, num_class)
+
+
+    return (images, labels)
+
+
+
+
+#
+# this function is modified based on
+# https://github.com/jackd/events-tfds
+# - vis.image.as_frames
+#
+
+def as_frames(
+    events,
+    labels,
+    dt=None,
+    num_frames=None,
+    shape=None,
+    flip_up_down=False,
+    augmentation=False,
+):
+
+    #
+    conf.input_data_time_dim = True
+
+    #
+    num_class=10
+    coords = events['coords']
+    polarity = events['polarity']
+    time = events['time']
+
+    coords = tf.cast(coords, dtype=tf.int32)
+    time = tf.cast(time, dtype=tf.int32)
+
+    #if time.size == 0:
+    if time.shape[0]==0:
+        raise ValueError("time must not be empty")
+
+    t_start = time[0]
+    t_end = time[-1]
+    if dt is None:
+        #dt = int((t_end - t_start) // (num_frames - 1))
+        dt = int((t_end - t_start) // num_frames)
+    else:
+        num_frames = (t_end - t_start) // dt + 1
+
+    if shape is None:
+        #shape = np.max(coords, axis=0)[-1::-1] + 1
+        assert False
+    else:
+        #shape = shape[-1::-1]
+        image_shape = (num_frames, *shape)
+
+    #frame_data = np.zeros((num_frames, *shape, 3), dtype=np.uint8)
+
+    #images = tf.zeros(image_shape,dtype=tf.int32)
+    images = tf.zeros(image_shape,dtype=tf.float32)
+
+    #if polarity is None:
+    #    colors = WHITE
+    #else:
+    #    colors = np.where(polarity[:, np.newaxis], RED, GREEN)
+
+    colors = tf.where(tf.expand_dims(polarity,1),RED,GREEN)
+
+    idxs_frame = tf.math.floordiv(tf.subtract(time,t_start),dt)
+    idxs_frame = tf.where(tf.equal(idxs_frame,num_frames),num_frames-1,idxs_frame)
+    idxs_frame = tf.expand_dims(idxs_frame,axis=1)
+
+    # (frame, x, y, color)
+    idxs = tf.concat([idxs_frame,coords],1)
+
+    #images = tf.tensor_scatter_nd_update(images,idxs,colors)
+    images = tf.tensor_scatter_nd_add(images,idxs,colors)
+
+    # resize image
+    if conf.model=='Spikformer':
+        s=128
+        crop_size = 134
+    else:
+        s=conf.cifar10_dvs_img_size
+        crop_size =conf.cifar10_dvs_crop_img_size
+    #crop_size = 50
+
+    if conf.model == 'Spikformer':
+        images = images
+    else:
+        images = tf.image.resize(images,(s,s),method='bilinear')   # VGG, ResNet
+
+    images = tf.image.random_flip_left_right(images)
+    labels = tf.one_hot(labels, num_class)
+    return (images, labels)

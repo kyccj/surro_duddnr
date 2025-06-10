@@ -2136,32 +2136,42 @@ class Model(tf.keras.Model):
                 #    self.grads_and_vars = grads_accum_and_vars
 
                 # print gradients
-                if conf.debug_grad:
-                    for i, (g, v) in enumerate(grads_accum_and_vars):
-                        w = v[0]
-
-                        def write_grad(i, w):
-
-                            w_mean = tf.reduce_mean(w)
-                            w_max = tf.reduce_max(w)
-                            w_min = tf.reduce_min(w)
-                            w_std = tf.math.reduce_std(w)
-
-                            with self.writer.as_default(step=self._train_counter):
-                                tf.summary.scalar(f"{i}_layer_w_mean", data=w_mean)
-                                tf.summary.scalar(f"{i}_layer_w_max", data=w_max)
-                                tf.summary.scalar(f"{i}_layer_w_min", data=w_min)
-                                tf.summary.scalar(f"{i}_layer_w_std", data=w_std)
-
-                                self.writer.flush()
-
-                        condition = tf.equal(tf.math.floormod(train_counter, 500), 0)
-
-                        tf.cond(
-                            condition,
-                            lambda: tf.py_function(write_grad, [i, w], []),
-                            lambda: tf.no_op()
-                        )
+                # if conf.debug_grad:
+                #     for i, (g, v) in enumerate(grads_accum_and_vars):
+                #         g = g[0]
+                #         w = v[0]
+                #
+                #         def write_grad(i, g, w):
+                #             g_mean = tf.reduce_mean(g)
+                #             g_max = tf.reduce_max(g)
+                #             g_min = tf.reduce_min(g)
+                #             g_std = tf.math.reduce_std(g)
+                #
+                #             w_mean = tf.reduce_mean(w)
+                #             w_max = tf.reduce_max(w)
+                #             w_min = tf.reduce_min(w)
+                #             w_std = tf.math.reduce_std(w)
+                #
+                #             with self.writer.as_default(step=self._train_counter):
+                #                 tf.summary.scalar(f"{i}_layer_g_mean", data=g_mean)
+                #                 tf.summary.scalar(f"{i}_layer_g_max", data=g_max)
+                #                 tf.summary.scalar(f"{i}_layer_g_min", data=g_min)
+                #                 tf.summary.scalar(f"{i}_layer_g_std", data=g_std)
+                #
+                #                 tf.summary.scalar(f"{i}_layer_w_mean", data=w_mean)
+                #                 tf.summary.scalar(f"{i}_layer_w_max", data=w_max)
+                #                 tf.summary.scalar(f"{i}_layer_w_min", data=w_min)
+                #                 tf.summary.scalar(f"{i}_layer_w_std", data=w_std)
+                #
+                #                 self.writer.flush()
+                #
+                #         condition = tf.equal(tf.math.floormod(train_counter, 1000), 0)
+                #
+                #         tf.cond(
+                #             condition,
+                #             lambda: tf.py_function(write_grad, [i, g, w], []),
+                #             lambda: tf.no_op()
+                #         )
 
                 #print(self._train_counter)
                 #current_step = int(self.optimizer.iterations)

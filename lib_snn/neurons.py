@@ -201,56 +201,83 @@ class Neuron(tf.keras.layers.Layer):
             tensor_array_name='vth')
 
 
-        if conf.fire_surro_grad_func == 'predictiveness_asy' :
-            self.pre_beta = tf.Variable(conf.surro_grad_beth, dtype=tf.float32, name='pre_beta', trainable=False)
-            self.beta = tf.Variable(conf.surro_grad_beth, dtype=tf.float32, name='beta', trainable=False)
+        if conf.adaptive_surrogate == True :
+            self.beta = tf.Variable([conf.surro_grad_beth] * conf.time_step, dtype=tf.float32, trainable=False,
+                                    name='beta')
             prod_dim = int(np.prod(self.dim))
-            self.pre_ave_g = tf.Variable(tf.zeros([prod_dim]), dtype=tf.float32, trainable=False,
-                                         name='previous_average_gradient')
-            self.pre_ave_g_vector = tf.Variable(tf.zeros([prod_dim]), dtype=tf.float32, trainable=False,
-                                                name='previous_average_gradient_vector')
-
-        elif conf.fire_surro_grad_func =='predictiveness_asy_all_timestep':
-            self.beta_1 = tf.Variable(conf.surro_grad_beth, dtype=tf.float32, name='_beta_1', trainable=False)
-            self.beta_2 = tf.Variable(conf.surro_grad_beth, dtype=tf.float32, name='_beta_2', trainable=False)
-            self.beta_3 = tf.Variable(conf.surro_grad_beth, dtype=tf.float32, name='_beta_3', trainable=False)
-            self.beta_4 = tf.Variable(conf.surro_grad_beth, dtype=tf.float32, name='_beta_4', trainable=False)
-            prod_dim = int(np.prod(self.dim))
-            self.pre_g_4 = tf.Variable(tf.zeros([prod_dim]), dtype=tf.float32, trainable=False,
-                                       name='previous_timestep_gradient_4')
-            self.pre_g_3 = tf.Variable(tf.zeros([prod_dim]), dtype=tf.float32, trainable=False,
-                                       name='previous_timestep_gradient_3')
-            self.pre_g_2 = tf.Variable(tf.zeros([prod_dim]), dtype=tf.float32, trainable=False,
-                                       name='previous_timestep_gradient_2')
-        elif conf.fire_surro_grad_func == 'predictiveness_asy_timestep' :
-            self.beta = tf.Variable(conf.surro_grad_beth, dtype=tf.float32, name='_beta', trainable=False)
-            prod_dim = int(np.prod(self.dim))
-            self.pre_g = tf.Variable(tf.zeros([prod_dim]), dtype=tf.float32, trainable=False,
-                                     name='previous_timestep_gradient')
-        elif conf.fire_surro_grad_func == 'predictiveness_asy_timestep_0417' :
-            self.beta = tf.Variable(conf.surro_grad_beth, dtype=tf.float32, name='_beta', trainable=False)
-            prod_dim = int(np.prod(self.dim))
-            self.pre_g = tf.Variable(tf.zeros([prod_dim]), dtype=tf.float32, trainable=False,
-                                     name='previous_timestep_gradient')
-            self.t4_g = tf.Variable(tf.zeros([prod_dim]), dtype=tf.float32, trainable=False,
-                                     name='timestep_4_gradient')
-        elif conf.fire_surro_grad_func == 'predictiveness_asy_all_timestep_0418' :
-            self.beta = tf.Variable([conf.surro_grad_beth]*4, dtype=tf.float32, trainable=False, name='beta')
-            prod_dim = int(np.prod(self.dim))
-
             self.sum_g_4 = tf.Variable(tf.zeros([prod_dim], dtype=tf.float32), trainable=False, name='sum_g_4')
             self.count_g_4 = tf.Variable(0.0, dtype=tf.float32, trainable=False, name='count_g_4')
             self.avg_g_4 = tf.Variable(tf.zeros([prod_dim]), dtype=tf.float32, trainable=False, name='avg_g_4')
 
-            self.pre_g = tf.Variable([tf.zeros([prod_dim])] * 3, dtype=tf.float32, trainable=False, name='previous_timestep_gradients')
-        else :
-            self.beta = tf.Variable(conf.surro_grad_alpha, dtype=tf.float32, name='beta', trainable=False)
-            prod_dim = int(np.prod(self.dim))
-            self.sum_g = tf.Variable(tf.zeros([prod_dim]), dtype=tf.float32, trainable=False,
-                                                name='sum_gradient_vector')
-            self.avg_g = tf.Variable(tf.zeros([prod_dim]), dtype=tf.float32, trainable=False,
-                                     name='previous_average_gradient_vector')
-            self.count_g = tf.Variable(0.0, dtype=tf.float32, trainable=False, name='count_g_4')
+            self.pre_g = tf.Variable([tf.zeros([prod_dim])] * (conf.time_step - 1), dtype=tf.float32, trainable=False,
+                                     name='previous_timestep_gradients')
+
+        # if conf.fire_surro_grad_func == 'predictiveness_asy' :
+        #     self.pre_beta = tf.Variable(conf.surro_grad_beth, dtype=tf.float32, name='pre_beta', trainable=False)
+        #     self.beta = tf.Variable(conf.surro_grad_beth, dtype=tf.float32, name='beta', trainable=False)
+        #     prod_dim = int(np.prod(self.dim))
+        #     self.pre_ave_g = tf.Variable(tf.zeros([prod_dim]), dtype=tf.float32, trainable=False,
+        #                                  name='previous_average_gradient')
+        #     self.pre_ave_g_vector = tf.Variable(tf.zeros([prod_dim]), dtype=tf.float32, trainable=False,
+        #                                         name='previous_average_gradient_vector')
+        # elif conf.fire_surro_grad_func =='predictiveness_asy_all_timestep':
+        #     self.beta_1 = tf.Variable(conf.surro_grad_beth, dtype=tf.float32, name='_beta_1', trainable=False)
+        #     self.beta_2 = tf.Variable(conf.surro_grad_beth, dtype=tf.float32, name='_beta_2', trainable=False)
+        #     self.beta_3 = tf.Variable(conf.surro_grad_beth, dtype=tf.float32, name='_beta_3', trainable=False)
+        #     self.beta_4 = tf.Variable(conf.surro_grad_beth, dtype=tf.float32, name='_beta_4', trainable=False)
+        #     prod_dim = int(np.prod(self.dim))
+        #     self.pre_g_4 = tf.Variable(tf.zeros([prod_dim]), dtype=tf.float32, trainable=False,
+        #                                name='previous_timestep_gradient_4')
+        #     self.pre_g_3 = tf.Variable(tf.zeros([prod_dim]), dtype=tf.float32, trainable=False,
+        #                                name='previous_timestep_gradient_3')
+        #     self.pre_g_2 = tf.Variable(tf.zeros([prod_dim]), dtype=tf.float32, trainable=False,
+        #                                name='previous_timestep_gradient_2')
+        # elif conf.fire_surro_grad_func == 'predictiveness_asy_timestep' :
+        #     self.beta = tf.Variable(conf.surro_grad_beth, dtype=tf.float32, name='_beta', trainable=False)
+        #     prod_dim = int(np.prod(self.dim))
+        #     self.pre_g = tf.Variable(tf.zeros([prod_dim]), dtype=tf.float32, trainable=False,
+        #                              name='previous_timestep_gradient')
+        # elif conf.fire_surro_grad_func == 'predictiveness_asy_timestep_0417' :
+        #     self.beta = tf.Variable(conf.surro_grad_beth, dtype=tf.float32, name='_beta', trainable=False)
+        #     prod_dim = int(np.prod(self.dim))
+        #     self.pre_g = tf.Variable(tf.zeros([prod_dim]), dtype=tf.float32, trainable=False,
+        #                              name='previous_timestep_gradient')
+        #     self.t4_g = tf.Variable(tf.zeros([prod_dim]), dtype=tf.float32, trainable=False,
+        #                              name='timestep_4_gradient')
+        # elif conf.fire_surro_grad_func in ['predictiveness_asy_all_timestep_0418', 'predictiveness_rec_all_timestep', 'predictiveness_tri_all_timestep', 'predictiveness_asy_all_timestep_t4'] :
+        #     self.beta = tf.Variable([conf.surro_grad_beth]*4, dtype=tf.float32, trainable=False, name='beta')
+        #     prod_dim = int(np.prod(self.dim))
+        #     self.sum_g_4 = tf.Variable(tf.zeros([prod_dim], dtype=tf.float32), trainable=False, name='sum_g_4')
+        #     self.count_g_4 = tf.Variable(0.0, dtype=tf.float32, trainable=False, name='count_g_4')
+        #     self.avg_g_4 = tf.Variable(tf.zeros([prod_dim]), dtype=tf.float32, trainable=False, name='avg_g_4')
+        #
+        #     self.pre_g = tf.Variable([tf.zeros([prod_dim])] * 3, dtype=tf.float32, trainable=False, name='previous_timestep_gradients')
+        # elif conf.fire_surro_grad_func in ['predictiveness_asy_all_timestep_0418_timestep_10'] :
+        #     self.beta = tf.Variable([conf.surro_grad_beth]*10, dtype=tf.float32, trainable=False, name='beta')
+        #     prod_dim = int(np.prod(self.dim))
+        #
+        #     self.sum_g_4 = tf.Variable(tf.zeros([prod_dim], dtype=tf.float32), trainable=False, name='sum_g_4')
+        #     self.count_g_4 = tf.Variable(0.0, dtype=tf.float32, trainable=False, name='count_g_4')
+        #     self.avg_g_4 = tf.Variable(tf.zeros([prod_dim]), dtype=tf.float32, trainable=False, name='avg_g_4')
+        #
+        #     self.pre_g = tf.Variable([tf.zeros([prod_dim])] * 9, dtype=tf.float32, trainable=False, name='previous_timestep_gradients')
+        # else :
+        #     self.beta = tf.Variable(conf.surro_grad_alpha, dtype=tf.float32, name='beta', trainable=False)
+        #     # prod_dim = int(np.prod(self.dim))
+        #     # self.sum_g = tf.Variable(tf.zeros([prod_dim]), dtype=tf.float32, trainable=False,
+        #     #                                     name='sum_gradient_vector')
+        #     # self.avg_g = tf.Variable(tf.zeros([prod_dim]), dtype=tf.float32, trainable=False,
+        #     #                          name='previous_average_gradient_vector')
+        #     # self.count_g = tf.Variable(0.0, dtype=tf.float32, trainable=False, name='count_g_4')
+        #     ####0505####
+        #     prod_dim = int(np.prod(self.dim))
+        #
+        #     self.sum_g_4 = tf.Variable(tf.zeros([prod_dim], dtype=tf.float32), trainable=False, name='sum_g_4')
+        #     self.count_g_4 = tf.Variable(0.0, dtype=tf.float32, trainable=False, name='count_g_4')
+        #     self.avg_g_4 = tf.Variable(tf.zeros([prod_dim]), dtype=tf.float32, trainable=False, name='avg_g_4')
+        #
+        #     self.pre_g = tf.Variable([tf.zeros([prod_dim])] * 3, dtype=tf.float32, trainable=False,
+        #                              name='previous_timestep_gradients')
 
         # ##yongjin for cpng
         # if conf.fire_surro_grad_func in ['cpng_tri', 'cpng_asy']:
@@ -1694,8 +1721,6 @@ class Neuron(tf.keras.layers.Layer):
         else:
             spike = tf.where(f_fire, vth, self.zeros)
 
-
-
         def grad(upstream):
             # print(upstream.shape)
             #a=0.5
@@ -1708,15 +1733,27 @@ class Neuron(tf.keras.layers.Layer):
             # boxcar
 
             def compute_gradient(beta):
-                width_h = 1 / beta
+                width_h = beta
                 cond_lower = tf.math.greater_equal(vmem, vth - width_h)
                 cond_upper = tf.math.less_equal(vmem, vth + width_h)
                 cond = tf.math.logical_and(cond_lower, cond_upper)
 
                 if conf.fire_surro_grad_func == 'boxcar':
-                    h = tf.ones_like(cond, dtype=tf.float32)
-                elif conf.fire_surro_grad_func in ['predictiveness_asy', 'predictiveness_asy_timestep', 'predictiveness_asy_all_timestep', 'predictiveness_asy_timestep_0417', 'predictiveness_asy_all_timestep_0418']:
-                    h = (beta / 2) * (vmem - 1) + 0.5
+                    h_value = 1.0 / (2.0 * width_h)
+                    h = tf.ones_like(vmem, dtype=tf.float32) * h_value
+                elif conf.fire_surro_grad_func == 'boxcar_extent_fix':
+                    h = tf.ones_like(vmem, dtype=tf.float32)
+                elif conf.fire_surro_grad_func == 'triangle':
+                    distance = tf.abs(vmem - vth)
+                    h = (1.0 - (distance / width_h)) * (1.0 / width_h)
+                elif conf.fire_surro_grad_func == 'triangle_extent_fix':
+                    distance = tf.abs(vmem - vth)
+                    h = (1.0 - (distance / width_h))
+                elif conf.fire_surro_grad_func == 'asy':
+                    scale = 1 / (2 * width_h * 0.5)
+                    h = scale * (1 / (2 * width_h)) * (vmem - 1) + 0.5
+                elif conf.fire_surro_grad_func == 'asy_extent_fix':
+                    h = (1 / (2 * width_h)) * (vmem - 1) + 0.5
 
                 du_do = tf.where(cond, h, tf.zeros(cond.shape))
                 gradient = upstream * du_do
@@ -1733,11 +1770,6 @@ class Neuron(tf.keras.layers.Layer):
                 fr2 = firing_rate(vec2)
                 fr_similarity = tf.reduce_sum(fr1 * fr2)
                 return alpha * cos_sim + (1 - alpha) * fr_similarity
-
-            def compute_similarity(beta):
-                current_gradient_vector = compute_gradient(beta)
-                sim = similarity(self.pre_ave_g, current_gradient_vector)
-                return sim
 
             def rbf_kernel(X1, X2, length_scale=1.0, sigma_f=1.0):
                 X1_sq = tf.reduce_sum(tf.square(X1), axis=1, keepdims=True)
@@ -1773,586 +1805,98 @@ class Neuron(tf.keras.layers.Layer):
                 # tf.print("imp values:", imp)
                 return ei
 
-            if conf.fire_surro_grad_func=='boxcar':
-                width_h = conf.surro_grad_alpha
-                beta = 1/width_h
-                cond_lower=tf.math.greater_equal(vmem,vth-width_h)
-                cond_upper=tf.math.less_equal(vmem,vth+width_h)
-                cond = tf.math.logical_and(cond_lower,cond_upper)
-                h = tf.ones_like(cond, dtype=tf.float32)
-                du_do = tf.where(cond,h,tf.zeros(cond.shape))
+            def find_beta_update(target_beta, ref_gradient):
+                def compute_similarity(beta):
+                    current_gradient_vector = compute_gradient(beta)
+                    if t == conf.time_step:
+                        similarity_alpha = 0.5
+                    else:
+                        similarity_alpha = 1
+                    return similarity(ref_gradient, current_gradient_vector, similarity_alpha)
 
-            elif conf.fire_surro_grad_func=='asym':
-                beta = self.beta
-                width_h = 1/self.beta
-                # width_h = conf.surro_grad_alpha
-                cond_lower=tf.math.greater_equal(vmem,vth-width_h)
-                cond_upper=tf.math.less_equal(vmem,vth+width_h)
-                cond = tf.math.logical_and(cond_lower,cond_upper)
+                n = tf.constant(conf.train_beta_candidate_number, dtype=tf.int32)
+                low_init = conf.find_beta_low
+                high_init = conf.find_beta_high
+                best_beta_init = low_init
 
-                #h = tf.constant(1/(2*width_h),shape=cond.shape)
-                # h = tf.multiply(0.5,vmem) + 0.25
-                #du_do = tf.where(cond,tf.ones(cond.shape),tf.zeros(cond.shape))
-                h = (beta / 2) * (vmem - 1) + 0.5
-                du_do = tf.where(cond,h,tf.zeros(cond.shape))
-                #du_do = tf.where(cond,vmem-vth+a,tf.zeros(cond.shape))
+                def cond(iteration, low, high, best_beta):
+                    return tf.less(iteration, 2)
 
-                grad_ret = upstream * du_do
-                grad_ret_flatten = tf.reshape(grad_ret, [-1])
+                def body(iteration, low, high, best_beta):
+                    grid_points = tf.linspace(low, high, n)
+                    Y_train = tf.map_fn(lambda beta: compute_similarity(beta), grid_points,
+                                        fn_output_signature=tf.float32)
 
-                measure_cos_sim_cond = tf.logical_and(
-                    tf.equal(t, 4),
-                    tf.greater(lib_snn.model.train_counter, 500)
-                )
+                    X_test = tf.random.uniform(shape=(conf.test_beta_candidate_number, 1),
+                                               minval=low, maxval=high)
+                    mu_s, std_s = gp_posterior(tf.reshape(grid_points, [-1, 1]), Y_train, X_test)
+                    f_best = tf.reduce_max(Y_train)
+                    ei = expected_improvement(mu_s, std_s, f_best)
 
-                if conf.debug_surro_grad:
-                    def write_surro_grad(beta_val, sim_val, tag, avg_g_norm, grad_ret_norm):
-                        with self.writer.as_default(step=lib_snn.model.train_counter):
-                            tf.summary.scalar(f"{self.name}_beta/beta_{tag}", beta_val)
-                            tf.summary.scalar(f"{self.name}_sim/cos_sim_{tag}", sim_val)
-                            tf.summary.scalar(f"{self.name}_norm/pre_g_norm", avg_g_norm)
-                            tf.summary.scalar(f"{self.name}_norm/grad_ret_norm", grad_ret_norm)
-                            self.writer.flush()
+                    best_idx = tf.argmax(ei)
+                    beta_next = tf.squeeze(X_test[best_idx])
 
-                    avg_g_norm = tf.norm(self.avg_g)
-                    grad_ret_norm = tf.norm(grad_ret_flatten)
+                    shrink_ratio = tf.constant(0.1, dtype=tf.float32)
+                    delta = (high - low) * shrink_ratio / 2.0
+                    new_low = tf.maximum(beta_next - delta, tf.constant(conf.find_beta_low, dtype=tf.float32))
+                    new_high = tf.minimum(beta_next + delta, tf.constant(conf.find_beta_high, dtype=tf.float32))
+                    return iteration + 1, new_low, new_high, beta_next
 
-                    cosine_similarity_t4 = similarity(grad_ret_norm, avg_g_norm, 1)
-                    tf.cond(measure_cos_sim_cond,
-                            lambda: tf.py_function(write_surro_grad, [self.beta, cosine_similarity_t4,'t4', avg_g_norm, grad_ret_norm], []),
-                            lambda: tf.no_op())
+                _, _, _, final_beta = tf.while_loop(cond, body,
+                                                    [tf.constant(0), low_init, high_init, best_beta_init])
+                target_beta.assign(final_beta)
+                return tf.constant(0.)
 
-                accumulate_sum_g_4_cond = tf.logical_and(
-                    tf.equal(t, 4),
-                    tf.logical_not(tf.equal(tf.math.floormod(lib_snn.model.train_counter, 500), 0))
-                )
+            width_h = self.beta[t - 1]
+            cond_lower = tf.math.greater_equal(vmem, vth - width_h)
+            cond_upper = tf.math.less_equal(vmem, vth + width_h)
+            cond = tf.math.logical_and(cond_lower, cond_upper)
 
-                def accumulate():
-                    with tf.control_dependencies([
-                        self.sum_g.assign_add(grad_ret_flatten),
-                        self.count_g.assign_add(1.0)
-                    ]):
-                        return tf.constant(0.0)
-
-                tf.cond(accumulate_sum_g_4_cond,
-                        accumulate,
-                        lambda: tf.constant(0.))
-
-                finalize_avg_g_4_cond = tf.logical_and(
-                    tf.equal(t, 4),
-                    tf.equal(tf.math.floormod(lib_snn.model.train_counter, 500), 0)
-                )
-
-                def finalize():
-                    self.sum_g.assign_add(grad_ret_flatten),
-                    self.count_g.assign_add(1.0)
-                    avg = tf.math.divide_no_nan(self.sum_g, self.count_g)
-                    with tf.control_dependencies([
-                        self.avg_g.assign(avg),
-                        self.sum_g.assign(tf.zeros_like(self.sum_g)),
-                        self.count_g.assign(0.0)
-                    ]):
-                        return tf.constant(0.0)
-
-                tf.cond(finalize_avg_g_4_cond,
-                        finalize,
-                        lambda: tf.constant(0.))
-
-            elif conf.fire_surro_grad_func == 'predictiveness_asy':
-                ema_lambda = tf.constant(conf.ema_lambda, dtype=tf.float32)
-                find_beta_low = conf.find_beta_low
-                find_beta_high = conf.find_beta_high
-
-                def all_epoch_other_iteration():
-                    g_vec = compute_gradient(self.beta)
-                    self.pre_ave_g.assign(ema_lambda * self.pre_ave_g + (1.0 - ema_lambda) * g_vec)
-                    return tf.constant(0)
-
-                def other_epoch_first_iteration():
-                    def compute_similarity(beta):
-                        current_gradient_vector = compute_gradient(beta)
-                        sim = similarity(self.pre_ave_g, current_gradient_vector)
-                        return sim
-
-                    n = tf.constant(conf.train_beta_candidate_number, dtype=tf.int32)
-                    low_init = conf.find_beta_low
-                    high_init = conf.find_beta_high
-                    best_beta_init = low_init
-
-                    def cond(iteration, low, high, best_beta):
-                        return tf.less(iteration, 2)
-
-                    def body(iteration, low, high, best_beta):
-                        def rbf_kernel(X1, X2, length_scale=1.0, sigma_f=1.0):
-                            X1_sq = tf.reduce_sum(tf.square(X1), axis=1, keepdims=True)
-                            X2_sq = tf.reduce_sum(tf.square(X2), axis=1, keepdims=True)
-                            sq_dist = X1_sq - 2.0 * tf.matmul(X1, tf.transpose(X2)) + tf.transpose(X2_sq)
-                            return sigma_f ** 2 * tf.exp(-0.5 / length_scale ** 2 * sq_dist)
-
-                        def gp_posterior(X_train, Y_train, X_test, length_scale=1.0, sigma_f=1.0, noise=1e-2):
-                            K = rbf_kernel(X_train, X_train, length_scale, sigma_f) + noise * tf.eye(
-                                tf.shape(X_train)[0])
-                            K_s = rbf_kernel(X_train, X_test, length_scale, sigma_f)
-                            K_ss = rbf_kernel(X_test, X_test, length_scale, sigma_f) + 1e-2 * tf.eye(
-                                tf.shape(X_test)[0])
-
-                            K_inv = tf.linalg.inv(K)
-
-                            mu_s = tf.matmul(tf.transpose(K_s), tf.matmul(K_inv, tf.expand_dims(Y_train, axis=-1)))
-                            mu_s = tf.squeeze(mu_s, axis=-1)
-
-                            cov_s = K_ss - tf.matmul(tf.transpose(K_s), tf.matmul(K_inv, K_s))
-                            std_s = tf.sqrt(tf.linalg.diag_part(cov_s) + 1e-8)
-                            return mu_s, std_s
-
-                        def expected_improvement(mu, sigma, f_best, xi=0.0):
-                            imp = mu - f_best - xi
-                            Z = imp / (sigma + 1e-8)
-
-                            dist = tfp.distributions.Normal(loc=0.0, scale=1.0)
-                            ei = imp * dist.cdf(Z) + sigma * dist.prob(Z)
-
-                            # tf.print("mu_s max:", tf.reduce_max(mu))
-                            # tf.print("f_best:", f_best)
-                            # tf.print("imp values:", imp)
-                            return ei
-
-                        # grid_points = tf.random.uniform(shape=(n,), minval=low, maxval=high, dtype=tf.float32)
-                        grid_points = tf.linspace(low, high, n)
-
-                        X_train = tf.reshape(grid_points, [-1, 1])
-
-                        Y_raw = tf.map_fn(lambda beta: compute_similarity(beta), grid_points, dtype=tf.float32)
-
-                        # Y_mean = tf.reduce_mean(Y_raw)
-                        # Y_std = tf.math.reduce_std(Y_raw) + 1e-8
-                        # Y_train = (Y_raw - Y_mean) / Y_std
-                        Y_train = Y_raw
-                        # Y_train = tf.map_fn(lambda beta: compute_similarity(beta), grid_points, dtype=tf.float32)
-
-                        X_test = tf.random.uniform(shape=(conf.test_beta_candidate_number, 1), minval=low, maxval=high)
-                        # X_test = tf.linspace(low, high, 200)[:, tf.newaxis]
-                        mu_s, std_s = gp_posterior(X_train, Y_train, X_test)
-                        # tf.print(f"\n {self.name}")
-                        # tf.print("\n=== X_train and Y_train ===")
-                        # for i in range(tf.shape(X_train)[0]):
-                        #     tf.print("X_train:", X_train[i][0], "\tSimilarity:", Y_train[i])
-
-                        f_best = tf.reduce_max(Y_train)
-                        ei = expected_improvement(mu_s, std_s, f_best)
-
-                        # tf.print("\n=== Posterior Predictions on X_test ===")
-                        # for i in range(tf.shape(X_test)[0]):
-                        #     tf.print(
-                        #         "X_test:", X_test[i][0],
-                        #         "\tmu_s:", mu_s[i],
-                        #         "\tstd_s:", std_s[i],
-                        #         "\tEI:", ei[i]
-                        #     )
-
-                        best_idx = tf.argmax(ei)
-                        beta_next = tf.squeeze(X_test[best_idx])
-
-                        # tf.print("\n[SELECTED BETA INFO]")
-                        # tf.print("beta_next:", beta_next)
-                        # tf.print("mu_s at beta_next:", mu_s[best_idx])
-                        # tf.print("std_s at beta_next:", std_s[best_idx])
-                        # tf.print("EI at beta_next:", ei[best_idx])
-
-                        shrink_ratio = tf.constant(0.1, dtype=tf.float32)
-                        range_width = high - low
-                        delta = range_width * shrink_ratio / 2.0
-
-                        new_low = tf.maximum(beta_next - delta, tf.constant(find_beta_low, dtype=tf.float32))
-                        new_high = tf.minimum(beta_next + delta, tf.constant(find_beta_high, dtype=tf.float32))
-                        # tf.print("\n Iter", iteration, "| beta_next:", beta_next)
-                        # tf.print("\n New range:", new_low, "-", new_high)
-                        return iteration + 1, new_low, new_high, beta_next
-
-                    _, _, _, final_beta = tf.while_loop(
-                        cond,
-                        body,
-                        loop_vars=[tf.constant(0), low_init, high_init, best_beta_init]
-                    )
-
-                    self.beta.assign(final_beta)
-                    new_gradient_vector = compute_gradient(final_beta)
-                    # self.pre_ave_g.assign(new_gradient_vector)
-                    # self.pre_count.assign(1.0)
-                    self.pre_ave_g.assign((1.0 - ema_lambda) * new_gradient_vector)
-                    return tf.constant(0)
-
-                def all_epoch_last_iteration():
-                    g_vec = compute_gradient(self.beta)
-                    # self.pre_ave_g.assign_add(g_vec)
-                    # self.pre_count.assign_add(1.0)
-                    self.pre_ave_g.assign(ema_lambda * self.pre_ave_g + (1.0 - ema_lambda * g_vec))
-
-                    self.pre_ave_g_vector.assign(self.pre_ave_g)
-                    # self.pre_ave_g.assign(self.pre_ave_g/self.pre_count)
-                    return tf.constant(0)
-
-                if t == 4:
-                    tf.case([
-                        (tf.logical_and(tf.equal(tf.math.floormod(lib_snn.model.train_counter, conf.accumulate_gradient_iteration), 0),
-                                        tf.greater(lib_snn.model.train_counter, 0)),
-                         lambda: all_epoch_last_iteration()),
-                        (tf.logical_and(tf.equal(tf.math.floormod(lib_snn.model.train_counter - 1, conf.accumulate_gradient_iteration), 0),
-                                        tf.greater(lib_snn.model.train_counter, 1)),
-                         lambda: other_epoch_first_iteration()),
-                    ], default=lambda: all_epoch_other_iteration())
-
-                beta = self.beta
-                # print(f"{self.name} beta = {beta}")
-                width_h = 1 / beta
-                cond_lower = tf.math.greater_equal(vmem, vth - width_h)
-                cond_upper = tf.math.less_equal(vmem, vth + width_h)
-                cond = tf.math.logical_and(cond_lower, cond_upper)
-                h = (beta / 2) * (vmem - 1) + 0.5
+            if conf.fire_surro_grad_func == 'boxcar':
+                h_value = 1.0 / (2.0 * width_h)
+                h = tf.ones_like(vmem, dtype=tf.float32) * h_value
                 du_do = tf.where(cond, h, tf.zeros(cond.shape))
-
-            elif conf.fire_surro_grad_func == 'predictiveness_asy_timestep':
-                def find_beta():
-                    def compute_similarity(beta):
-                        current_gradient_vector = compute_gradient(beta)
-                        return similarity(self.pre_g, current_gradient_vector)
-
-                    n = tf.constant(conf.train_beta_candidate_number, dtype=tf.int32)
-                    low_init = conf.find_beta_low
-                    high_init = conf.find_beta_high
-                    best_beta_init = low_init
-
-                    def cond(iteration, low, high, best_beta):
-                        return tf.less(iteration, 2)
-
-                    def body(iteration, low, high, best_beta):
-                        grid_points = tf.linspace(low, high, n)
-                        X_train = tf.reshape(grid_points, [-1, 1])
-                        Y_train = tf.map_fn(lambda beta: compute_similarity(beta), grid_points,
-                                            fn_output_signature=tf.float32)
-
-                        X_test = tf.random.uniform(shape=(conf.test_beta_candidate_number, 1), minval=low, maxval=high)
-                        mu_s, std_s = gp_posterior(X_train, Y_train, X_test)
-                        f_best = tf.reduce_max(Y_train)
-                        ei = expected_improvement(mu_s, std_s, f_best)
-
-                        best_idx = tf.argmax(ei)
-                        beta_next = tf.squeeze(X_test[best_idx])
-
-                        shrink_ratio = tf.constant(0.1, dtype=tf.float32)
-                        delta = (high - low) * shrink_ratio / 2.0
-                        new_low = tf.maximum(beta_next - delta, tf.constant(conf.find_beta_low, dtype=tf.float32))
-                        new_high = tf.minimum(beta_next + delta, tf.constant(conf.find_beta_high, dtype=tf.float32))
-                        return iteration + 1, new_low, new_high, beta_next
-
-                    _, _, _, final_beta = tf.while_loop(cond, body,
-                                                        [tf.constant(0), low_init, high_init, best_beta_init])
-                    self.beta.assign(final_beta)
-                    return tf.constant(0.)
-
-                should_update = tf.logical_and(
-                    tf.equal(t, 3),
-                    tf.logical_and(
-                        tf.equal(tf.math.floormod(lib_snn.model.train_counter - 1, 500), 0),
-                        tf.greater(lib_snn.model.train_counter, 1)
-                    )
-                )
-                _ = tf.cond(should_update, lambda: find_beta(), lambda: tf.constant(0.))
-
-                beta = self.beta
-
-                width_h = 1 / beta
-                cond_lower = tf.math.greater_equal(vmem, vth - width_h)
-                cond_upper = tf.math.less_equal(vmem, vth + width_h)
-                cond = tf.math.logical_and(cond_lower, cond_upper)
-                h = (beta / 2) * (vmem - 1) + 0.5
-                du_do = tf.where(cond, h, tf.zeros_like(vmem))
-
                 grad_ret = upstream * du_do
                 grad_ret_flatten = tf.reshape(grad_ret, [-1])
 
-                update_pre_g_cond = tf.logical_and(
-                    tf.equal(t, 4),
-                    tf.logical_and(
-                        tf.equal(tf.math.floormod(lib_snn.model.train_counter - 1, 500), 0),
-                        tf.greater(lib_snn.model.train_counter, 1)
-                    )
-                )
-                _ = tf.cond(update_pre_g_cond, lambda: self.pre_g.assign(grad_ret_flatten), lambda: tf.constant(0.))
-                if conf.debug_surro_grad:
-                    def write_surro_grad(beta_val, sim_val):
-                        with self.writer.as_default(step=lib_snn.model.train_counter):
-                            tf.summary.scalar(f"{self.name}_beta", beta_val)
-                            tf.summary.scalar(f"{self.name}_sim/_cos_sim", sim_val)
-                            self.writer.flush()
-
-                    cosine_similarity = similarity(grad_ret_flatten, self.pre_g, 1)
-                    tf.cond(should_update,
-                            lambda: tf.py_function(write_surro_grad, [beta, cosine_similarity], []),
-                            lambda: tf.no_op())
-
-            elif conf.fire_surro_grad_func == 'predictiveness_asy_all_timestep':
-                def find_beta_update(target_beta, ref_gradient):
-                    def compute_similarity(beta):
-                        current_gradient_vector = compute_gradient(beta)
-                        return similarity(ref_gradient, current_gradient_vector)
-
-                    n = tf.constant(conf.train_beta_candidate_number, dtype=tf.int32)
-                    low_init = conf.find_beta_low
-                    high_init = conf.find_beta_high
-                    best_beta_init = low_init
-
-                    def cond(iteration, low, high, best_beta):
-                        return tf.less(iteration, 2)
-
-                    def body(iteration, low, high, best_beta):
-                        grid_points = tf.linspace(low, high, n)
-                        Y_train = tf.map_fn(lambda beta: compute_similarity(beta), grid_points,
-                                            fn_output_signature=tf.float32)
-
-                        X_test = tf.random.uniform(shape=(conf.test_beta_candidate_number, 1),
-                                                   minval=low, maxval=high)
-                        mu_s, std_s = gp_posterior(tf.reshape(grid_points, [-1, 1]), Y_train, X_test)
-                        f_best = tf.reduce_max(Y_train)
-                        ei = expected_improvement(mu_s, std_s, f_best)
-
-                        best_idx = tf.argmax(ei)
-                        beta_next = tf.squeeze(X_test[best_idx])
-
-                        shrink_ratio = tf.constant(0.1, dtype=tf.float32)
-                        delta = (high - low) * shrink_ratio / 2.0
-                        new_low = tf.maximum(beta_next - delta, tf.constant(conf.find_beta_low, dtype=tf.float32))
-                        new_high = tf.minimum(beta_next + delta, tf.constant(conf.find_beta_high, dtype=tf.float32))
-                        return iteration + 1, new_low, new_high, beta_next
-
-                    _, _, _, final_beta = tf.while_loop(cond, body,
-                                                        [tf.constant(0), low_init, high_init, best_beta_init])
-                    target_beta.assign(final_beta)
-                    return tf.constant(0.)
-
-                width_h = tf.case([
-                    (tf.equal(t, 3), lambda: 1 / self.beta_3),
-                    (tf.equal(t, 2), lambda: 1 / self.beta_2),
-                    (tf.equal(t, 1), lambda: 1 / self.beta_1)
-                ], default=lambda: 1 / self.beta_3, exclusive=True)
-
-                cond_lower = tf.math.greater_equal(vmem, vth - width_h)
-                cond_upper = tf.math.less_equal(vmem, vth + width_h)
-                cond = tf.math.logical_and(cond_lower, cond_upper)
-                h = (width_h / 2) * (vmem - 1) + 0.5
-                du_do = tf.where(cond, h, tf.zeros_like(vmem))
-
+            elif conf.fire_surro_grad_func == 'boxcar_extent_fix':
+                h = tf.ones_like(vmem, dtype=tf.float32)
+                du_do = tf.where(cond, h, tf.zeros(cond.shape))
                 grad_ret = upstream * du_do
                 grad_ret_flatten = tf.reshape(grad_ret, [-1])
 
-                common_cond = tf.logical_and(
-                    tf.equal(tf.math.floormod(lib_snn.model.train_counter - 1, 500), 0),
-                    tf.greater(lib_snn.model.train_counter, 1)
-                )
-
-                update_pre_g_t4 = tf.logical_and(tf.equal(t, 4), common_cond)
-                _ = tf.cond(update_pre_g_t4,
-                            lambda: self.pre_g_4.assign(grad_ret_flatten),
-                            lambda: tf.constant(0.))
-
-                update_beta_t3 = tf.logical_and(tf.equal(t, 3), common_cond)
-                _ = tf.cond(update_beta_t3,
-                            lambda: find_beta_update(self.beta_3, self.pre_g_4),
-                            lambda: tf.constant(0.))
-
-                update_pre_g_t3 = tf.logical_and(tf.equal(t, 3), common_cond)
-                _ = tf.cond(update_pre_g_t3,
-                            lambda: self.pre_g_3.assign(grad_ret_flatten),
-                            lambda: tf.constant(0.))
-
-                update_beta_t2 = tf.logical_and(tf.equal(t, 2), common_cond)
-                _ = tf.cond(update_beta_t2,
-                            lambda: find_beta_update(self.beta_2, self.pre_g_3),
-                            lambda: tf.constant(0.))
-
-                update_pre_g_t2 = tf.logical_and(tf.equal(t, 2), common_cond)
-                _ = tf.cond(update_pre_g_t2,
-                            lambda: self.pre_g_2.assign(grad_ret_flatten),
-                            lambda: tf.constant(0.))
-
-                update_beta_t1 = tf.logical_and(tf.equal(t, 1), common_cond)
-                _ = tf.cond(update_beta_t1,
-                            lambda: find_beta_update(self.beta_1, self.pre_g_2),
-                            lambda: tf.constant(0.))
-
-                if conf.debug_surro_grad:
-                    def write_surro_grad(beta_val, sim_val, tag):
-                        with self.writer.as_default(step=lib_snn.model.train_counter):
-                            tf.summary.scalar(f"{self.name}_beta/_beta_{tag}", beta_val)
-                            tf.summary.scalar(f"{self.name}_sim/_cos_sim_{tag}", sim_val)
-                            self.writer.flush()
-
-                    cosine_similarity_t3 = similarity(grad_ret_flatten, self.pre_g_4, 1)
-                    tf.cond(update_beta_t3,
-                            lambda: tf.py_function(write_surro_grad, [self.beta_3, cosine_similarity_t3, 't3'], []),
-                            lambda: tf.no_op())
-
-                    cosine_similarity_t2 = similarity(grad_ret_flatten, self.pre_g_3, 1)
-                    tf.cond(update_beta_t2,
-                            lambda: tf.py_function(write_surro_grad, [self.beta_2, cosine_similarity_t2, 't2'], []),
-                            lambda: tf.no_op())
-
-                    cosine_similarity_t1 = similarity(grad_ret_flatten, self.pre_g_2, 1)
-                    tf.cond(update_beta_t1,
-                            lambda: tf.py_function(write_surro_grad, [self.beta_1, cosine_similarity_t1, 't1'], []),
-                            lambda: tf.no_op())
-
-            elif conf.fire_surro_grad_func == 'predictiveness_asy_timestep_0417':
-                def find_beta():
-                    def compute_similarity(beta):
-                        current_gradient_vector = compute_gradient(beta)
-                        return similarity(self.pre_g, current_gradient_vector)
-
-                    n = tf.constant(conf.train_beta_candidate_number, dtype=tf.int32)
-                    low_init = conf.find_beta_low
-                    high_init = conf.find_beta_high
-                    best_beta_init = low_init
-
-                    def cond(iteration, low, high, best_beta):
-                        return tf.less(iteration, 2)
-
-                    def body(iteration, low, high, best_beta):
-                        grid_points = tf.linspace(low, high, n)
-                        X_train = tf.reshape(grid_points, [-1, 1])
-                        Y_train = tf.map_fn(lambda beta: compute_similarity(beta), grid_points,
-                                            fn_output_signature=tf.float32)
-
-                        X_test = tf.random.uniform(shape=(conf.test_beta_candidate_number, 1), minval=low, maxval=high)
-                        mu_s, std_s = gp_posterior(X_train, Y_train, X_test)
-                        f_best = tf.reduce_max(Y_train)
-                        ei = expected_improvement(mu_s, std_s, f_best)
-
-                        best_idx = tf.argmax(ei)
-                        beta_next = tf.squeeze(X_test[best_idx])
-
-                        shrink_ratio = tf.constant(0.1, dtype=tf.float32)
-                        delta = (high - low) * shrink_ratio / 2.0
-                        new_low = tf.maximum(beta_next - delta, tf.constant(conf.find_beta_low, dtype=tf.float32))
-                        new_high = tf.minimum(beta_next + delta, tf.constant(conf.find_beta_high, dtype=tf.float32))
-                        return iteration + 1, new_low, new_high, beta_next
-
-                    _, _, _, final_beta = tf.while_loop(cond, body,
-                                                        [tf.constant(0), low_init, high_init, best_beta_init])
-                    self.beta.assign(final_beta)
-                    return tf.constant(0.)
-
-                should_update = tf.logical_and(
-                    tf.equal(t, 3),
-                    tf.logical_and(
-                        tf.equal(tf.math.floormod(lib_snn.model.train_counter - 1, 500), 0),
-                        tf.greater(lib_snn.model.train_counter, 1)
-                    )
-                )
-                _ = tf.cond(should_update, lambda: find_beta(), lambda: tf.constant(0.))
-
-                beta = self.beta
-
-                width_h = 1 / beta
-                cond_lower = tf.math.greater_equal(vmem, vth - width_h)
-                cond_upper = tf.math.less_equal(vmem, vth + width_h)
-                cond = tf.math.logical_and(cond_lower, cond_upper)
-                h = (beta / 2) * (vmem - 1) + 0.5
-                du_do = tf.where(cond, h, tf.zeros_like(vmem))
-
+            elif conf.fire_surro_grad_func == 'triangle' :
+                distance = tf.abs(vmem - vth)
+                h = (1.0 - (distance / width_h)) * (1.0 / width_h)
+                du_do = tf.where(cond, h, tf.zeros(cond.shape))
                 grad_ret = upstream * du_do
                 grad_ret_flatten = tf.reshape(grad_ret, [-1])
 
-                update_pre_g_cond = tf.logical_and(
-                    tf.equal(t, 4),
-                    tf.logical_and(
-                        tf.equal(tf.math.floormod(lib_snn.model.train_counter - 1, 500), 0),
-                        tf.greater(lib_snn.model.train_counter, 1)
-                    )
-                )
-                _ = tf.cond(update_pre_g_cond, lambda: self.pre_g.assign(grad_ret_flatten), lambda: tf.constant(0.))
-                _ = tf.cond(update_pre_g_cond, lambda: self.t4_g.assign(grad_ret_flatten), lambda: tf.constant(0.))
-
-                if conf.debug_surro_grad:
-                    def write_surro_grad(beta_val, sim_val, t4_sim):
-                        with self.writer.as_default(step=lib_snn.model.train_counter):
-                            tf.summary.scalar(f"{self.name}{t}_beta", beta_val)
-                            tf.summary.scalar(f"{self.name}_previous_sim/{t}_cos_sim", sim_val)
-                            tf.summary.scalar(f"{self.name}_t4_sim/{t}_cos_sim", t4_sim)
-                            self.writer.flush()
-                        self.pre_g.assign(grad_ret_flatten)
-
-                    shoud_log_update = tf.logical_and(
-                        tf.not_equal(t, 4),
-                        tf.logical_and(
-                            tf.equal(tf.math.floormod(lib_snn.model.train_counter - 1, 500), 0),
-                            tf.greater(lib_snn.model.train_counter, 1)
-                        )
-                    )
-
-                    cosine_similarity = similarity(grad_ret_flatten, self.pre_g, 1)
-                    t4_cosin_similarity = similarity(grad_ret_flatten, self.t4_g, 1)
-                    tf.cond(shoud_log_update,
-                            lambda: tf.py_function(write_surro_grad, [beta, cosine_similarity, t4_cosin_similarity], []),
-                            lambda: tf.no_op())
-
-            elif conf.fire_surro_grad_func == 'predictiveness_asy_all_timestep_0418':
-                def find_beta_update(target_beta, ref_gradient):
-                    def compute_similarity(beta):
-                        current_gradient_vector = compute_gradient(beta)
-                        if t==4 :
-                            similarity_alpha = 0.5
-                        else :
-                            similarity_alpha = 1
-                        return similarity(ref_gradient, current_gradient_vector, similarity_alpha)
-
-                    n = tf.constant(conf.train_beta_candidate_number, dtype=tf.int32)
-                    low_init = conf.find_beta_low
-                    high_init = conf.find_beta_high
-                    best_beta_init = low_init
-
-                    def cond(iteration, low, high, best_beta):
-                        return tf.less(iteration, 2)
-
-                    def body(iteration, low, high, best_beta):
-                        grid_points = tf.linspace(low, high, n)
-                        Y_train = tf.map_fn(lambda beta: compute_similarity(beta), grid_points,
-                                            fn_output_signature=tf.float32)
-
-                        X_test = tf.random.uniform(shape=(conf.test_beta_candidate_number, 1),
-                                                   minval=low, maxval=high)
-                        mu_s, std_s = gp_posterior(tf.reshape(grid_points, [-1, 1]), Y_train, X_test)
-                        f_best = tf.reduce_max(Y_train)
-                        ei = expected_improvement(mu_s, std_s, f_best)
-
-                        best_idx = tf.argmax(ei)
-                        beta_next = tf.squeeze(X_test[best_idx])
-
-                        shrink_ratio = tf.constant(0.1, dtype=tf.float32)
-                        delta = (high - low) * shrink_ratio / 2.0
-                        new_low = tf.maximum(beta_next - delta, tf.constant(conf.find_beta_low, dtype=tf.float32))
-                        new_high = tf.minimum(beta_next + delta, tf.constant(conf.find_beta_high, dtype=tf.float32))
-                        return iteration + 1, new_low, new_high, beta_next
-
-                    _, _, _, final_beta = tf.while_loop(cond, body,
-                                                        [tf.constant(0), low_init, high_init, best_beta_init])
-                    target_beta.assign(final_beta)
-                    return tf.constant(0.)
-
-                width_h = 1 / self.beta[t - 1]
-
-                cond_lower = tf.math.greater_equal(vmem, vth - width_h)
-                cond_upper = tf.math.less_equal(vmem, vth + width_h)
-                cond = tf.math.logical_and(cond_lower, cond_upper)
-                h = (width_h / 2) * (vmem - 1) + 0.5
-                du_do = tf.where(cond, h, tf.zeros_like(vmem))
-
+            elif conf.fire_surro_grad_func == 'triangle_extent_fix' :
+                distance = tf.abs(vmem - vth)
+                h = (1.0 - (distance / width_h))
+                du_do = tf.where(cond, h, tf.zeros(cond.shape))
                 grad_ret = upstream * du_do
                 grad_ret_flatten = tf.reshape(grad_ret, [-1])
 
+            elif conf.fire_surro_grad_func == 'asy' :
+                scale = 1 / (2 * width_h * 0.5)
+                h = scale * (1 / (2 * width_h)) * (vmem - 1) + 0.5
+                du_do = tf.where(cond, h, tf.zeros(cond.shape))
+                grad_ret = upstream * du_do
+                grad_ret_flatten = tf.reshape(grad_ret, [-1])
+
+            elif conf.fire_surro_grad_func == 'asy_extent_fix':
+                h = (1 / (2 * width_h)) * (vmem - 1) + 0.5
+                du_do = tf.where(cond, h, tf.zeros(cond.shape))
+                grad_ret = upstream * du_do
+                grad_ret_flatten = tf.reshape(grad_ret, [-1])
+
+            if conf.adaptive_surrogate == True :
                 #### accumulate_t4_gradient_in_other_epoch ####
                 accumulate_sum_g_4_cond = tf.logical_and(
-                    tf.equal(t, 4),
-                    tf.logical_not(tf.equal(tf.math.floormod(lib_snn.model.train_counter, 1405), 0))
+                    tf.equal(t, conf.time_step),
+                    tf.logical_not(tf.equal(tf.math.floormod(lib_snn.model.train_counter, conf.accumulate_iteration), 0))
                 )
 
                 def accumulate_sum_and_count():
@@ -2370,8 +1914,8 @@ class Neuron(tf.keras.layers.Layer):
 
                 #### average_t4_gradient_in_last_epoch ####
                 finalize_avg_g_4_cond = tf.logical_and(
-                    tf.equal(t, 4),
-                    tf.equal(tf.math.floormod(lib_snn.model.train_counter, 1405), 0)
+                    tf.equal(t, conf.time_step),
+                    tf.equal(tf.math.floormod(lib_snn.model.train_counter, conf.accumulate_iteration), 0)
                 )
 
                 def finalize_avg_g_4():
@@ -2389,25 +1933,36 @@ class Neuron(tf.keras.layers.Layer):
                         finalize_avg_g_4,
                         lambda: tf.constant(0.))
                 ###########################################
-
                 common_cond = tf.logical_and(
-                    tf.equal(tf.math.floormod(lib_snn.model.train_counter - 1, 1405), 0),
+                    tf.equal(tf.math.floormod(lib_snn.model.train_counter - 1, conf.accumulate_iteration), 0),
                     tf.greater(lib_snn.model.train_counter, 1)
                 )
 
-                update_beta_t4 = tf.logical_and(tf.equal(t, 4), common_cond)
-                _ = tf.cond(update_beta_t4,
-                            lambda: find_beta_update(self.beta[t-1], self.avg_g_4),
-                            lambda: tf.constant(0.))
+                if conf.sparsity_aware_gradient_consistency == True :
+                    update_beta_t4 = tf.logical_and(tf.equal(t, 4), common_cond)
+                    _ = tf.cond(update_beta_t4,
+                                lambda: find_beta_update(self.beta[t-1], self.avg_g_4),
+                                lambda: tf.constant(0.))
+
+                if conf.temporal_gradient_consistency == True :
+                    update_beta_t3 = tf.logical_and(tf.equal(t, 3), common_cond)
+                    _ = tf.cond(update_beta_t3,
+                                lambda: find_beta_update(self.beta[t-1], self.pre_g[2]),
+                                lambda: tf.constant(0.))
+
+                    update_beta_t2 = tf.logical_and(tf.equal(t, 2), common_cond)
+                    _ = tf.cond(update_beta_t2,
+                                lambda: find_beta_update(self.beta[t - 1], self.pre_g[1]),
+                                lambda: tf.constant(0.))
+
+                    update_beta_t1 = tf.logical_and(tf.equal(t, 1), common_cond)
+                    _ = tf.cond(update_beta_t1,
+                                lambda: find_beta_update(self.beta[t - 1], self.pre_g[0]),
+                                lambda: tf.constant(0.))
 
                 update_pre_g_t4 = tf.logical_and(tf.equal(t, 4), common_cond)
                 _ = tf.cond(update_pre_g_t4,
-                            lambda: self.pre_g[t-2].assign(grad_ret_flatten),
-                            lambda: tf.constant(0.))
-
-                update_beta_t3 = tf.logical_and(tf.equal(t, 3), common_cond)
-                _ = tf.cond(update_beta_t3,
-                            lambda: find_beta_update(self.beta[t-1], self.pre_g[2]),
+                            lambda: self.pre_g[t - 2].assign(grad_ret_flatten),
                             lambda: tf.constant(0.))
 
                 update_pre_g_t3 = tf.logical_and(tf.equal(t, 3), common_cond)
@@ -2415,23 +1970,13 @@ class Neuron(tf.keras.layers.Layer):
                             lambda: self.pre_g[t-2].assign(grad_ret_flatten),
                             lambda: tf.constant(0.))
 
-                update_beta_t2 = tf.logical_and(tf.equal(t, 2), common_cond)
-                _ = tf.cond(update_beta_t2,
-                            lambda: find_beta_update(self.beta[t-1], self.pre_g[1]),
-                            lambda: tf.constant(0.))
-
                 update_pre_g_t2 = tf.logical_and(tf.equal(t, 2), common_cond)
                 _ = tf.cond(update_pre_g_t2,
                             lambda: self.pre_g[t-2].assign(grad_ret_flatten),
                             lambda: tf.constant(0.))
 
-                update_beta_t1 = tf.logical_and(tf.equal(t, 1), common_cond)
-                _ = tf.cond(update_beta_t1,
-                            lambda: find_beta_update(self.beta[t-1], self.pre_g[0]),
-                            lambda: tf.constant(0.))
-
                 log_common_cond = tf.logical_and(
-                    tf.equal(tf.math.floormod(lib_snn.model.train_counter - 1, 281), 0),
+                    tf.equal(tf.math.floormod(lib_snn.model.train_counter - 1, 2500), 0),
                     tf.greater(lib_snn.model.train_counter, 1)
                 )
 
@@ -2441,10 +1986,11 @@ class Neuron(tf.keras.layers.Layer):
                 log_update_beta_t1 = tf.logical_and(tf.equal(t, 1), log_common_cond)
 
                 if conf.debug_surro_grad:
-                    def write_surro_grad(beta_val, sim_val, sparse_val, mix_val, tag):
+                    def write_surro_grad(beta_val, sim_val, sparse_val, mix_val, tag, sim_val_t4):
                         with self.writer.as_default(step=lib_snn.model.train_counter):
                             tf.summary.scalar(f"{self.name}_beta/beta_{tag}", beta_val)
                             tf.summary.scalar(f"{self.name}_sim/cos_sim_{tag}", sim_val)
+                            tf.summary.scalar(f"{self.name}_sim/cos_sim_t4_{tag}", sim_val_t4)
                             tf.summary.scalar(f"{self.name}_sim/sparsity_{tag}", sparse_val)
                             tf.summary.scalar(f"{self.name}_sim/cos_sim+sparsity_{tag}", mix_val)
                             self.writer.flush()
@@ -2453,32 +1999,34 @@ class Neuron(tf.keras.layers.Layer):
                     sparsity_t4 = similarity(grad_ret_flatten, self.avg_g_4, 0)
                     mix_t4 = similarity(grad_ret_flatten, self.avg_g_4, 0.5)
                     tf.cond(log_update_beta_t4,
-                            lambda: tf.py_function(write_surro_grad, [self.beta[3], cosine_similarity_t4, sparsity_t4, mix_t4, 't4'], []),
+                            lambda: tf.py_function(write_surro_grad, [self.beta[3], cosine_similarity_t4, sparsity_t4, mix_t4, 't4', cosine_similarity_t4], []),
                             lambda: tf.no_op())
 
                     cosine_similarity_t3 = similarity(grad_ret_flatten, self.pre_g[2], 1)
                     sparsity_t3 = similarity(grad_ret_flatten, self.pre_g[2], 0)
                     mix_t3 = similarity(grad_ret_flatten, self.pre_g[2], 0.5)
                     tf.cond(log_update_beta_t3,
-                            lambda: tf.py_function(write_surro_grad, [self.beta[2], cosine_similarity_t3, sparsity_t3, mix_t3, 't3'], []),
+                            lambda: tf.py_function(write_surro_grad, [self.beta[2], cosine_similarity_t3, sparsity_t3, mix_t3, 't3', cosine_similarity_t3], []),
                             lambda: tf.no_op())
 
                     cosine_similarity_t2 = similarity(grad_ret_flatten, self.pre_g[1], 1)
+                    cosine_similarity_t2_t4 = similarity(grad_ret_flatten, self.pre_g[2], 1)
                     sparsity_t2 = similarity(grad_ret_flatten, self.pre_g[1], 0)
                     mix_t2 = similarity(grad_ret_flatten, self.pre_g[1], 0.5)
                     tf.cond(log_update_beta_t2,
-                            lambda: tf.py_function(write_surro_grad, [self.beta[1], cosine_similarity_t2, sparsity_t2, mix_t2, 't2'], []),
+                            lambda: tf.py_function(write_surro_grad, [self.beta[1], cosine_similarity_t2, sparsity_t2, mix_t2, 't2', cosine_similarity_t2_t4], []),
                             lambda: tf.no_op())
 
                     cosine_similarity_t1 = similarity(grad_ret_flatten, self.pre_g[0], 1)
+                    cosine_similarity_t1_t4 = similarity(grad_ret_flatten, self.pre_g[2], 1)
                     sparsity_t1 = similarity(grad_ret_flatten, self.pre_g[0], 0)
                     mix_t1 = similarity(grad_ret_flatten, self.pre_g[0], 0.5)
                     tf.cond(log_update_beta_t1,
-                            lambda: tf.py_function(write_surro_grad, [self.beta[0], cosine_similarity_t1, sparsity_t1, mix_t1, 't1'], []),
+                            lambda: tf.py_function(write_surro_grad, [self.beta[0], cosine_similarity_t1, sparsity_t1, mix_t1, 't1', cosine_similarity_t1_t4], []),
                             lambda: tf.no_op())
 
-            grad_ret = upstream * du_do
-            grad_ret = grad_ret / (tf.norm(grad_ret) + 1e-8)
+            # grad_ret = upstream * du_do
+            # grad_ret = grad_ret / (tf.norm(grad_ret) + 1e-8)
             # grad_ret_flatten = tf.reshape(grad_ret, [-1])
 
 
@@ -3245,7 +2793,6 @@ class Neuron(tf.keras.layers.Layer):
         return self.out
 
     def run_type_hid(self, inputs, vmem, t, training):
-
         vmem_integ = self.integration(inputs, vmem, t)
 
         if self.n_type=='LIF':
