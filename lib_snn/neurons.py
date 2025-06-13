@@ -1827,7 +1827,13 @@ class Neuron(tf.keras.layers.Layer):
                     Y_train = tf.map_fn(lambda beta: compute_similarity(beta), grid_points,
                                         fn_output_signature=tf.float32)
 
-                    X_test = tf.random.uniform(shape=(conf.test_beta_candidate_number, 1),
+                    test_num = tf.cond(
+                        tf.equal(iteration, 0),
+                        lambda: tf.constant(conf.test_beta_candidate_number_0, dtype=tf.int32),
+                        lambda: tf.constant(conf.test_beta_candidate_number_1, dtype=tf.int32)
+                    )
+
+                    X_test = tf.random.uniform(shape=(test_num, 1),
                                                minval=low, maxval=high)
                     mu_s, std_s = gp_posterior(tf.reshape(grid_points, [-1, 1]), Y_train, X_test)
                     f_best = tf.reduce_max(Y_train)
@@ -1835,6 +1841,29 @@ class Neuron(tf.keras.layers.Layer):
 
                     best_idx = tf.argmax(ei)
                     beta_next = tf.squeeze(X_test[best_idx])
+
+                    if conf.plot_predictiveness :
+                        def plot_predictiveness():
+                            import matplotlib.pyplot as plt
+                            import os
+
+                            os.makedirs("beta_plot", exist_ok=True)
+                            plt.figure(figsize=(8, 4))
+                            plt.plot(grid_points.numpy(), Y_train.numpy(), label="Predictiveness")
+                            plt.axvline(beta_next.numpy(), color='red', linestyle='--', label="Chosen beta")
+                            plt.title(f"Predictiveness (iteration={iteration.numpy()})")
+                            plt.xlabel("beta")
+                            plt.ylabel("Predictiveness")
+                            plt.legend()
+                            plt.grid(True)
+                            plt.tight_layout()
+
+                            save_path = f"beta_plot/iteration{iteration.numpy()}_plot_step{lib_snn.model.train_counter.numpy()}_t{t}.png"
+                            plt.savefig(save_path)
+                            plt.close()
+                            return 0
+
+                        tf.py_function(func=plot_predictiveness, inp=[], Tout=[tf.float32])
 
                     shrink_ratio = tf.constant(0.1, dtype=tf.float32)
                     delta = (high - low) * shrink_ratio / 2.0

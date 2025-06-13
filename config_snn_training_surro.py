@@ -67,25 +67,26 @@ conf.rand_erase_en = True
 
 # surrogate function shape
 # conf.fire_surro_grad_func = 'boxcar'
-# conf.fire_surro_grad_func = 'boxcar_extent_fix'
+conf.fire_surro_grad_func = 'boxcar_extent_fix'
 # conf.fire_surro_grad_func = 'triangle'
 # conf.fire_surro_grad_func = 'triangle_extent_fix'
 # conf.fire_surro_grad_func = 'asy'
-conf.fire_surro_grad_func = 'asy_extent_fix'
+# conf.fire_surro_grad_func = 'asy_extent_fix'
 
 
 # adaptive surrogate gradients
 conf.adaptive_surrogate = True
 
 if conf.adaptive_surrogate == True :
-    conf.sparsity_aware_gradient_consistency = True
-    conf.temporal_gradient_consistency = True
-    conf.surro_grad_beth = 1.0
+    # conf.sparsity_aware_gradient_consistency = True
+    # conf.temporal_gradient_consistency = True
+    conf.surro_grad_beth = 0.5
     conf.find_beta_low = 0.1
-    conf.find_beta_high = 1.0
-    conf.similarity_alpha = 1.0
+    conf.find_beta_high = 0.5
     conf.train_beta_candidate_number = 30
-    conf.test_beta_candidate_number = 100
+    conf.test_beta_candidate_number_0 = 300
+    conf.test_beta_candidate_number_1 = 100
+    conf.accumulate_iteration = 500*5   #iteration * epoch
 ##########
 
 ##### CPNG setting #####
@@ -96,16 +97,18 @@ if conf.adaptive_surrogate == True :
 
 # conf.debug_grad = True
 # conf.debug_surro_grad = True
-# conf.debug_surro_grad_per_iter = 500
+# conf.plot_predictiveness = True
+
 
 ##### model save setting #####
-# conf.root_model_save = f'./model_ckpt_/{conf.fire_surro_grad_func}_sim_{conf.similarity_alpha}_{conf.surro_grad_beth}_accumulate_gradient_5epoch_time_step10'
+conf.root_model_save = f'./model_ckpt_1/{conf.fire_surro_grad_func}_beta={conf.surro_grad_beth}'
+
 # conf.root_model_save = f'./model_ckpt_2/{conf.fire_surro_grad_func}_sim_{conf.similarity_alpha}_{conf.surro_grad_beth}'
 # conf.root_model_save = f'./model_ckpt/{conf.fire_surro_grad_func}_{conf.surro_grad_alpha}_average/warmup={conf.learning_rate_init} to {conf.learning_rate}, weight_decay={conf.weight_decay_AdamW}'
 # conf.root_model_save = f'./model_ckpt/{conf.fire_surro_grad_func}_alpha={conf.surro_grad_alpha}/warmup={conf.learning_rate_init} to {conf.learning_rate}, weight_decay={conf.weight_decay_AdamW}'
 # conf.root_model_save = f'./model_ckpt_2/warmup={conf.learning_rate_init} to {conf.learning_rate}, weight_decay={conf.weight_decay_AdamW}'
 # conf.root_model_save = f'./model_ckpt_test/{conf.fire_surro_grad_func}_beta=0.5'
-conf.root_model_save = f'./model_ckpt_test/vmem_test'
+# conf.root_model_save = f'./model_ckpt_test/vmem_test'
 # conf.root_model_save = f'./model_ckpt_distribution/{conf.fire_surro_grad_func}_{conf.surro_grad_alpha}_peak_change/'
 ##########
 # conf.exp_set_name = 'cosine_similarity'
