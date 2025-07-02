@@ -66,9 +66,9 @@ conf.rand_erase_en = True
 #### surrogate function setting #####
 
 # surrogate function shape
-# conf.fire_surro_grad_func = 'boxcar'
+conf.fire_surro_grad_func = 'boxcar'
 # conf.fire_surro_grad_func = 'boxcar_extent_fix'
-conf.fire_surro_grad_func = 'triangle'
+# conf.fire_surro_grad_func = 'triangle'
 # conf.fire_surro_grad_func = 'triangle_extent_fix'
 # conf.fire_surro_grad_func = 'asy'
 # conf.fire_surro_grad_func = 'asy_extent_fix'
@@ -102,17 +102,18 @@ else :
 conf.predictiveness_in_model = True
 
 if conf.predictiveness_in_model :
+    conf.debug_mode = True
     conf.debug_grad = True
 else :
-    conf.debug_grad = True
+    conf.debug_grad = False
 
 
 
 ##### model save setting #####
-conf.root_model_save = f'./model_ckpt_1/{conf.fire_surro_grad_func}_beta={conf.surro_grad_beth}_sgc+tgc'
+conf.root_model_save = f'./model_ckpt_1/{conf.fire_surro_grad_func}_beta={conf.surro_grad_beth}'
 
 ##########
-conf.exp_set_name = 'ablation_triangle'
+conf.exp_set_name = 'predictiveness_in_model'
 # conf.exp_set_name = 'compare_boxcar_asy'
 # conf.exp_set_name = 'compare_boxcar_asy_0415'
 # conf.exp_set_name = '0417'
