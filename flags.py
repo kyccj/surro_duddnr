@@ -907,7 +907,6 @@ flags.DEFINE_float('weight_decay_AdamW',1e-6,'weight_decay_factor')
 # surrogate gradient parameters
 ########################################
 flags.DEFINE_enum('fire_surro_grad_func', 'boxcar', ['boxcar', 'sigmoid', 'asym'], 'surrogate gardient function of fire function')
-flags.DEFINE_float('surro_grad_alpha', 0.5, 'surro gradient - const alpha')
 flags.DEFINE_float('surro_grad_beth', 0.5, 'surro gradient - const beta')
 flags.DEFINE_bool('debug_surro_grad',False,'debug suurogate gradient - surrogate gradient of spike fire function')
 flags.DEFINE_integer('debug_surro_grad_per_iter',500,'debug suurogate gradient print iter')
@@ -923,15 +922,14 @@ flags.DEFINE_integer('accumulate_gradient_iteration', 500, 'predictiveness - acc
 
 flags.DEFINE_float('find_beta_low', 1.0, 'predictiveness - find_beta_low')
 flags.DEFINE_float('find_beta_high', 10.0, 'predictiveness - find_beta_high')
-flags.DEFINE_float('similarity_alpha', 0.5, 'predictiveness - similarity_alpha')
-flags.DEFINE_float('ema_lambda', 0.1, 'predictiveness - ema_lambda')
 flags.DEFINE_integer('train_beta_candidate_number', 50, 'predictiveness - train_beta_candidate_number')
 flags.DEFINE_integer('test_beta_candidate_number_0', 200, 'predictiveness - test_beta_candidate_number')
 flags.DEFINE_integer('test_beta_candidate_number_1', 100, 'predictiveness - test_beta_candidate_number')
 flags.DEFINE_integer('accumulate_iteration', 2500, 'predictiveness - accumulate_iteration')
 
 flags.DEFINE_bool('adaptive_surrogate', False, 'adaptive surrogate gradients for predictiveness')
-flags.DEFINE_bool('plot_predictiveness', False, 'plot predictiveness about beta')
+flags.DEFINE_bool('predictiveness_in_model', False, 'save tensorboard predictiveness in model')
+flags.DEFINE_bool('plot_predictiveness_in_neurons', False, 'plot predictiveness about beta')
 flags.DEFINE_bool('sparsity_aware_gradient_consistency', False, 'adaptive surrogate gradient SGC')
 flags.DEFINE_bool('temporal_gradient_consistency', False, 'adaptive surrogate gradient TGC')
 #

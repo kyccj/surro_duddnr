@@ -67,26 +67,28 @@ conf.rand_erase_en = True
 
 # surrogate function shape
 # conf.fire_surro_grad_func = 'boxcar'
-conf.fire_surro_grad_func = 'boxcar_extent_fix'
-# conf.fire_surro_grad_func = 'triangle'
+# conf.fire_surro_grad_func = 'boxcar_extent_fix'
+conf.fire_surro_grad_func = 'triangle'
 # conf.fire_surro_grad_func = 'triangle_extent_fix'
 # conf.fire_surro_grad_func = 'asy'
 # conf.fire_surro_grad_func = 'asy_extent_fix'
 
 
 # adaptive surrogate gradients
-conf.adaptive_surrogate = True
+# conf.adaptive_surrogate = True
 
 if conf.adaptive_surrogate == True :
-    # conf.sparsity_aware_gradient_consistency = True
-    # conf.temporal_gradient_consistency = True
+    conf.sparsity_aware_gradient_consistency = True
+    conf.temporal_gradient_consistency = True
     conf.surro_grad_beth = 0.5
     conf.find_beta_low = 0.1
     conf.find_beta_high = 0.5
     conf.train_beta_candidate_number = 30
     conf.test_beta_candidate_number_0 = 300
     conf.test_beta_candidate_number_1 = 100
-    conf.accumulate_iteration = 500*5   #iteration * epoch
+    conf.accumulate_iteration = 500*1  #iteration * epoch
+else :
+    conf.surro_grad_beth = 0.5
 ##########
 
 ##### CPNG setting #####
@@ -94,24 +96,23 @@ if conf.adaptive_surrogate == True :
 # conf.find_beta_low = 1
 # conf.find_beta_high = 10.0
 ##########
-
-# conf.debug_grad = True
 # conf.debug_surro_grad = True
-# conf.plot_predictiveness = True
+# conf.plot_predictiveness_in_neurons = True
+
+conf.predictiveness_in_model = True
+
+if conf.predictiveness_in_model :
+    conf.debug_grad = True
+else :
+    conf.debug_grad = True
+
 
 
 ##### model save setting #####
-conf.root_model_save = f'./model_ckpt_1/{conf.fire_surro_grad_func}_beta={conf.surro_grad_beth}'
+conf.root_model_save = f'./model_ckpt_1/{conf.fire_surro_grad_func}_beta={conf.surro_grad_beth}_sgc+tgc'
 
-# conf.root_model_save = f'./model_ckpt_2/{conf.fire_surro_grad_func}_sim_{conf.similarity_alpha}_{conf.surro_grad_beth}'
-# conf.root_model_save = f'./model_ckpt/{conf.fire_surro_grad_func}_{conf.surro_grad_alpha}_average/warmup={conf.learning_rate_init} to {conf.learning_rate}, weight_decay={conf.weight_decay_AdamW}'
-# conf.root_model_save = f'./model_ckpt/{conf.fire_surro_grad_func}_alpha={conf.surro_grad_alpha}/warmup={conf.learning_rate_init} to {conf.learning_rate}, weight_decay={conf.weight_decay_AdamW}'
-# conf.root_model_save = f'./model_ckpt_2/warmup={conf.learning_rate_init} to {conf.learning_rate}, weight_decay={conf.weight_decay_AdamW}'
-# conf.root_model_save = f'./model_ckpt_test/{conf.fire_surro_grad_func}_beta=0.5'
-# conf.root_model_save = f'./model_ckpt_test/vmem_test'
-# conf.root_model_save = f'./model_ckpt_distribution/{conf.fire_surro_grad_func}_{conf.surro_grad_alpha}_peak_change/'
 ##########
-# conf.exp_set_name = 'cosine_similarity'
+conf.exp_set_name = 'ablation_triangle'
 # conf.exp_set_name = 'compare_boxcar_asy'
 # conf.exp_set_name = 'compare_boxcar_asy_0415'
 # conf.exp_set_name = '0417'
@@ -128,7 +129,7 @@ conf.root_model_save = f'./model_ckpt_1/{conf.fire_surro_grad_func}_beta={conf.s
 # conf.exp_set_name='asy'
 # conf.exp_set_name='younguk_convergence_rate'
 # conf.exp_set_name = 'NeurIPS_2025_predictiveness_asy/vggsnn_please'
-conf.exp_set_name = 'test'
+# conf.exp_set_name = 'test'
 ##### Loss setting #####
 # conf.rmp_en = 'True'
 # conf.rmp_k = 0.0005

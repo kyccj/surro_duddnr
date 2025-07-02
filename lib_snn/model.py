@@ -439,13 +439,31 @@ class Model(tf.keras.Model):
             else:
                 assert False
 
-
         # debug
         self.h_lab_tot_glb=[0]*10
 
         if conf.debug_grad:
             self.writer = tf.summary.create_file_writer(config.path_tensorboard)
 
+        if conf.predictiveness_in_model :
+            self.gradients = {
+                0: tf.Variable(tf.zeros((3, 3, 3, 64)), trainable=False, name='conv1'),
+                4: tf.Variable(tf.zeros((3, 3, 64, 64)), trainable=False, name='conv1_1'),
+                8: tf.Variable(tf.zeros((3, 3, 64, 128)), trainable=False, name='conv2'),
+                12: tf.Variable(tf.zeros((3, 3, 128, 128)), trainable=False, name='conv2_1'),
+                16: tf.Variable(tf.zeros((3, 3, 128, 256)), trainable=False, name='conv3'),
+                20: tf.Variable(tf.zeros((3, 3, 256, 256)), trainable=False, name='conv3_1'),
+                24: tf.Variable(tf.zeros((3, 3, 256, 256)), trainable=False, name='conv3_2'),
+                28: tf.Variable(tf.zeros((3, 3, 256, 512)), trainable=False, name='conv4'),
+                32: tf.Variable(tf.zeros((3, 3, 512, 512)), trainable=False, name='conv4_1'),
+                36: tf.Variable(tf.zeros((3, 3, 512, 512)), trainable=False, name='conv4_2'),
+                40: tf.Variable(tf.zeros((3, 3, 512, 512)), trainable=False, name='conv5'),
+                44: tf.Variable(tf.zeros((3, 3, 512, 512)), trainable=False, name='conv5_1'),
+                48: tf.Variable(tf.zeros((3, 3, 512, 512)), trainable=False, name='conv5_2'),
+                52: tf.Variable(tf.zeros((512, 512)), trainable=False, name='fc1'),
+                56: tf.Variable(tf.zeros((512, 512)), trainable=False, name='fc2'),
+                60: tf.Variable(tf.zeros((512, 10)), trainable=False, name='prediction')
+            }
 
     #def init_graph(self, inputs, outputs,**kwargs):
         #super(Model, self).__init__(inputs=inputs,outputs=outputs,**kwargs)

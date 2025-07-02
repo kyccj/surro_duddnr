@@ -211,6 +211,9 @@ class Neuron(tf.keras.layers.Layer):
 
             self.pre_g = tf.Variable([tf.zeros([prod_dim])] * (conf.time_step - 1), dtype=tf.float32, trainable=False,
                                      name='previous_timestep_gradients')
+        else :
+            self.beta = tf.Variable([conf.surro_grad_beth] * conf.time_step, dtype=tf.float32, trainable=False,
+                                    name='beta')
 
         # if conf.fire_surro_grad_func == 'predictiveness_asy' :
         #     self.pre_beta = tf.Variable(conf.surro_grad_beth, dtype=tf.float32, name='pre_beta', trainable=False)
@@ -1750,8 +1753,8 @@ class Neuron(tf.keras.layers.Layer):
                     distance = tf.abs(vmem - vth)
                     h = (1.0 - (distance / width_h))
                 elif conf.fire_surro_grad_func == 'asy':
-                    scale = 1 / (2 * width_h * 0.5)
-                    h = scale * (1 / (2 * width_h)) * (vmem - 1) + 0.5
+                    slope = 1.0 / (2 * width_h ** 2)
+                    h = slope * (vmem - (vth - width_h))
                 elif conf.fire_surro_grad_func == 'asy_extent_fix':
                     h = (1 / (2 * width_h)) * (vmem - 1) + 0.5
 
@@ -1842,7 +1845,7 @@ class Neuron(tf.keras.layers.Layer):
                     best_idx = tf.argmax(ei)
                     beta_next = tf.squeeze(X_test[best_idx])
 
-                    if conf.plot_predictiveness :
+                    if conf.plot_predictiveness_in_neurons :
                         def plot_predictiveness():
                             import matplotlib.pyplot as plt
                             import os
@@ -1909,8 +1912,8 @@ class Neuron(tf.keras.layers.Layer):
                 grad_ret_flatten = tf.reshape(grad_ret, [-1])
 
             elif conf.fire_surro_grad_func == 'asy' :
-                scale = 1 / (2 * width_h * 0.5)
-                h = scale * (1 / (2 * width_h)) * (vmem - 1) + 0.5
+                slope = 1.0 / (2 * width_h ** 2)
+                h = slope * (vmem - (vth - width_h))
                 du_do = tf.where(cond, h, tf.zeros(cond.shape))
                 grad_ret = upstream * du_do
                 grad_ret_flatten = tf.reshape(grad_ret, [-1])
