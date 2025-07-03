@@ -66,12 +66,12 @@ conf.rand_erase_en = True
 #### surrogate function setting #####
 
 # surrogate function shape
-conf.fire_surro_grad_func = 'boxcar'
+# conf.fire_surro_grad_func = 'boxcar'
 # conf.fire_surro_grad_func = 'boxcar_extent_fix'
 # conf.fire_surro_grad_func = 'triangle'
 # conf.fire_surro_grad_func = 'triangle_extent_fix'
 # conf.fire_surro_grad_func = 'asy'
-# conf.fire_surro_grad_func = 'asy_extent_fix'
+conf.fire_surro_grad_func = 'asy_extent_fix'
 
 
 # adaptive surrogate gradients
@@ -80,15 +80,15 @@ conf.fire_surro_grad_func = 'boxcar'
 if conf.adaptive_surrogate == True :
     conf.sparsity_aware_gradient_consistency = True
     conf.temporal_gradient_consistency = True
-    conf.surro_grad_beth = 0.5
+    conf.surro_grad_beth = 0.75
     conf.find_beta_low = 0.1
-    conf.find_beta_high = 0.5
+    conf.find_beta_high = 0.75
     conf.train_beta_candidate_number = 30
     conf.test_beta_candidate_number_0 = 300
     conf.test_beta_candidate_number_1 = 100
     conf.accumulate_iteration = 500*1  #iteration * epoch
 else :
-    conf.surro_grad_beth = 0.5
+    conf.surro_grad_beth = 0.75
 ##########
 
 ##### CPNG setting #####

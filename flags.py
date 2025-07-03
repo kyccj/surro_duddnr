@@ -922,6 +922,7 @@ flags.DEFINE_integer('accumulate_gradient_iteration', 500, 'predictiveness - acc
 
 flags.DEFINE_float('find_beta_low', 1.0, 'predictiveness - find_beta_low')
 flags.DEFINE_float('find_beta_high', 10.0, 'predictiveness - find_beta_high')
+flags.DEFINE_float('similarity_alpha', 0.5, 'predictiveness - similarity_alpha')
 flags.DEFINE_integer('train_beta_candidate_number', 50, 'predictiveness - train_beta_candidate_number')
 flags.DEFINE_integer('test_beta_candidate_number_0', 200, 'predictiveness - test_beta_candidate_number')
 flags.DEFINE_integer('test_beta_candidate_number_1', 100, 'predictiveness - test_beta_candidate_number')
