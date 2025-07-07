@@ -1141,6 +1141,9 @@ def set_file_path(batch_size):
             assert False
         config_name += config_n_reset
 
+
+
+
         # regularization
         reg_spike_str='_r-'
         if conf.reg_spike_out:
@@ -1203,6 +1206,7 @@ def set_file_path(batch_size):
         model_dataset_name = model_name + conf_pool + '_' + dataset_name
     else:
         model_dataset_name = model_name + '_' + dataset_name
+
 
 
 

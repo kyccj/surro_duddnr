@@ -7,7 +7,7 @@
 import os
 os.environ['NCCL_P2P_DISABLE']='1'
 os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"]="0"
+os.environ["CUDA_VISIBLE_DEVICES"]="1"
 
 
 #
@@ -15,7 +15,7 @@ from config import config
 conf = config.flags
 
 ##### training setting #####
-# conf.debug_mode = True
+conf.debug_mode = True
 # conf.verbose_snn_train = True
 conf.save_best_model_only = True
 conf.save_models_max_to_keep = 1
@@ -67,28 +67,28 @@ conf.rand_erase_en = True
 
 # surrogate function shape
 # conf.fire_surro_grad_func = 'boxcar'
-# conf.fire_surro_grad_func = 'boxcar_extent_fix'
+conf.fire_surro_grad_func = 'boxcar_height_fix'
 # conf.fire_surro_grad_func = 'triangle'
-# conf.fire_surro_grad_func = 'triangle_extent_fix'
+# conf.fire_surro_grad_func = 'triangle_height_fix'
 # conf.fire_surro_grad_func = 'asy'
-conf.fire_surro_grad_func = 'asy_extent_fix'
+# conf.fire_surro_grad_func = 'asy_height_fix'
 
 
 # adaptive surrogate gradients
-# conf.adaptive_surrogate = True
+conf.adaptive_surrogate = True
 
 if conf.adaptive_surrogate == True :
-    conf.sparsity_aware_gradient_consistency = True
-    conf.temporal_gradient_consistency = True
-    conf.surro_grad_beth = 0.75
+    # conf.sparsity_aware_gradient_consistency = True
+    # conf.temporal_gradient_consistency = True
+    conf.surro_grad_beth = 0.5
     conf.find_beta_low = 0.1
-    conf.find_beta_high = 0.75
+    conf.find_beta_high = 0.5
     conf.train_beta_candidate_number = 30
-    conf.test_beta_candidate_number_0 = 300
-    conf.test_beta_candidate_number_1 = 100
+    conf.test_beta_candidate_number_0 = 100
+    conf.test_beta_candidate_number_1 = 30
     conf.accumulate_iteration = 500*1  #iteration * epoch
 else :
-    conf.surro_grad_beth = 0.75
+    conf.surro_grad_beth = 1.0
 ##########
 
 ##### CPNG setting #####
@@ -96,7 +96,7 @@ else :
 # conf.find_beta_low = 1
 # conf.find_beta_high = 10.0
 ##########
-# conf.debug_surro_grad = True
+conf.debug_surro_grad = True
 # conf.plot_predictiveness_in_neurons = True
 
 conf.predictiveness_in_model = True
@@ -111,9 +111,10 @@ else :
 
 ##### model save setting #####
 conf.root_model_save = f'./model_ckpt_1/{conf.fire_surro_grad_func}_beta={conf.surro_grad_beth}'
+# conf.root_model_save = f'./model_ckpt_1/test'
 
 ##########
-conf.exp_set_name = 'predictiveness_in_model'
+conf.exp_set_name = 'new_predictiveness_in_model'
 # conf.exp_set_name = 'compare_boxcar_asy'
 # conf.exp_set_name = 'compare_boxcar_asy_0415'
 # conf.exp_set_name = '0417'

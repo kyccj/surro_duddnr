@@ -1,6 +1,7 @@
 
 import os
 import tensorflow as tf
+from IPython.testing.tools import full_path
 
 from tensorflow.python.framework import tensor_shape
 from tensorflow.python.layers import utils
@@ -1184,5 +1185,20 @@ def set_file_path():
     #    filepath_load = os.path.join(path_model_load, config_name)
     #filepath_save = os.path.join(path_model_save, config_name)
 
+    # yonjin save model_ckpt without overwriting
+    def save_model_ckpt_without_overwriting(file_path_save, config_name):
+        full_path = os.path.join(file_path_save, config_name)
+        if not os.path.exists(full_path):
+            return config_name
+
+        i = 1
+        while True:
+            new_config_name = f"{config_name}_{i}"
+            new_full_path = os.path.join(filepath_save, new_config_name)
+            if not os.path.exists(new_full_path):
+                return new_config_name
+            i += 1
+
+    config_name = save_model_ckpt_without_overwriting(filepath_save, config_name)
 
     return filepath_save, filepath_load, config_name
