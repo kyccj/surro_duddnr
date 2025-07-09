@@ -127,7 +127,10 @@ class Activation(keras.engine.base_layer.Layer):
                 #self.act_dnn = tf.keras.layers.ReLU(max_value=relu_max_value, name=name_act)
                 #self.act_dnn = tf.keras.layers.ReLU(max_value=relu_max_value)
                 #self.act_dnn = tf.keras.layers.ReLU(max_value=6.0)
-                self.act = tf.keras.layers.ReLU(name=self.name)
+                if conf.gradient_sparsity_in_neuron :
+                    self.act = lib_snn.relu_yongjin.ReLU_yongjin(name=self.name)
+                else:
+                    self.act = tf.keras.layers.ReLU(name=self.name)
             elif self.act_type == 'softmax':
                 #self.act_dnn = tf.keras.layers.Softmax(name=name_act)
                 self.act = tf.keras.layers.Softmax(name=self.name)

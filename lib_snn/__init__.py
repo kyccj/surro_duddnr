@@ -3,6 +3,8 @@
 from lib_snn import model
 from lib_snn import layers
 
+from lib_snn import relu_yongjin
+
 from lib_snn import activations
 
 from lib_snn import neurons

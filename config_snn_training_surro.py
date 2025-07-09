@@ -7,7 +7,7 @@
 import os
 os.environ['NCCL_P2P_DISABLE']='1'
 os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"]="1"
+os.environ["CUDA_VISIBLE_DEVICES"]="3"
 
 
 #
@@ -37,8 +37,8 @@ conf.weight_decay_AdamW = 2e-2
 ##########
 
 ##### neural network type setting #####
-conf.nn_mode = 'SNN'
-#conf.nn_mode = 'ANN'
+# conf.nn_mode = 'SNN'
+conf.nn_mode = 'ANN'
 
 conf.pooling_vgg = 'avg'
 ##########
@@ -67,7 +67,7 @@ conf.rand_erase_en = True
 
 # surrogate function shape
 # conf.fire_surro_grad_func = 'boxcar'
-conf.fire_surro_grad_func = 'boxcar_height_fix'
+# conf.fire_surro_grad_func = 'boxcar_height_fix'
 # conf.fire_surro_grad_func = 'triangle'
 # conf.fire_surro_grad_func = 'triangle_height_fix'
 # conf.fire_surro_grad_func = 'asy'
@@ -75,7 +75,7 @@ conf.fire_surro_grad_func = 'boxcar_height_fix'
 
 
 # adaptive surrogate gradients
-conf.adaptive_surrogate = True
+# conf.adaptive_surrogate = True
 
 if conf.adaptive_surrogate == True :
     # conf.sparsity_aware_gradient_consistency = True
@@ -96,25 +96,26 @@ else :
 # conf.find_beta_low = 1
 # conf.find_beta_high = 10.0
 ##########
+conf.debug_grad = True
 conf.debug_surro_grad = True
 # conf.plot_predictiveness_in_neurons = True
-
-conf.predictiveness_in_model = True
+# conf.predictiveness_in_model = True
+conf.gradient_sparsity_in_model = True
+conf.gradient_sparsity_in_neuron = True
 
 if conf.predictiveness_in_model :
     conf.debug_mode = True
     conf.debug_grad = True
-else :
-    conf.debug_grad = False
 
 
 
 ##### model save setting #####
-conf.root_model_save = f'./model_ckpt_1/{conf.fire_surro_grad_func}_beta={conf.surro_grad_beth}'
+conf.root_model_save = f'./model_ckpt_1/relu'
+# conf.root_model_save = f'./model_ckpt_1/{conf.fire_surro_grad_func}_beta={conf.surro_grad_beth}'
 # conf.root_model_save = f'./model_ckpt_1/test'
 
 ##########
-conf.exp_set_name = 'new_predictiveness_in_model'
+conf.exp_set_name = 'gradient_sparsity'
 # conf.exp_set_name = 'compare_boxcar_asy'
 # conf.exp_set_name = 'compare_boxcar_asy_0415'
 # conf.exp_set_name = '0417'

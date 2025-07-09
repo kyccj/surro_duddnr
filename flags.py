@@ -930,6 +930,8 @@ flags.DEFINE_integer('accumulate_iteration', 2500, 'predictiveness - accumulate_
 
 flags.DEFINE_bool('adaptive_surrogate', False, 'adaptive surrogate gradients for predictiveness')
 flags.DEFINE_bool('predictiveness_in_model', False, 'save tensorboard predictiveness in model')
+flags.DEFINE_bool('gradient_sparsity_in_model', False, 'save tensorboard sparsity in model')
+flags.DEFINE_bool('gradient_sparsity_in_neuron', False, 'save tensorboard sparsity in neuron')
 flags.DEFINE_bool('plot_predictiveness_in_neurons', False, 'plot predictiveness about beta')
 flags.DEFINE_bool('sparsity_aware_gradient_consistency', False, 'adaptive surrogate gradient SGC')
 flags.DEFINE_bool('temporal_gradient_consistency', False, 'adaptive surrogate gradient TGC')
