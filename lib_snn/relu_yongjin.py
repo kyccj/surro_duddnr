@@ -32,20 +32,30 @@ class ReLU_yongjin(_BaseReLU):
                 total = tf.cast(tf.size(g), tf.float32)
                 sparsity = nonzero / total
 
-                def write_grad_ret_sparsity(layer_name, sparsity, g):
+                def gsnr(grad_ret_flatten):
+                    mask = tf.not_equal(grad_ret_flatten, 0.0)
+                    nonzero_grad = tf.boolean_mask(grad_ret_flatten, mask)
+                    grad_mean = tf.reduce_mean(nonzero_grad, axis=0)
+                    grad_variance = tf.math.reduce_variance(nonzero_grad, axis=0)
+                    gsnr = tf.square(grad_mean) / (grad_variance)
+                    return tf.reduce_mean(gsnr)
+
+                def write_grad_ret_sparsity(layer_name, sparsity, gsnr):
                     with writer.as_default(step=lib_snn.model.train_counter):
                         tf.summary.scalar(f"{layer_name}_relu/grad_sparsity", sparsity)
-                        tf.summary.histogram(f"{layer_name}_grad_histogram/", g)
+                        tf.summary.scalar(f"{layer_name}_relu/gsnr", gsnr)
                         self.writer.flush()
 
                 log_common_cond = tf.logical_and(
-                    tf.equal(tf.math.floormod(lib_snn.model.train_counter - 1, 2500), 0),
+                    tf.equal(tf.math.floormod(lib_snn.model.train_counter - 1, 1), 0),
                     tf.greater(lib_snn.model.train_counter, 1)
                 )
 
+                grad_gsnr = gsnr(tf.reshape(g, [-1]))
+
                 tf.cond(log_common_cond,
                         lambda: tf.py_function(write_grad_ret_sparsity,
-                                               [layer_name, sparsity, g],
+                                               [layer_name, sparsity, grad_gsnr],
                                                []),
                         lambda: tf.no_op())
 

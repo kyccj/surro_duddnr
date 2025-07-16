@@ -7,7 +7,7 @@
 import os
 os.environ['NCCL_P2P_DISABLE']='1'
 os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"]="3"
+os.environ["CUDA_VISIBLE_DEVICES"]="0"
 
 
 #
@@ -37,8 +37,8 @@ conf.weight_decay_AdamW = 2e-2
 ##########
 
 ##### neural network type setting #####
-# conf.nn_mode = 'SNN'
-conf.nn_mode = 'ANN'
+conf.nn_mode = 'SNN'
+# conf.nn_mode = 'ANN'
 
 conf.pooling_vgg = 'avg'
 ##########
@@ -71,7 +71,7 @@ conf.rand_erase_en = True
 # conf.fire_surro_grad_func = 'triangle'
 # conf.fire_surro_grad_func = 'triangle_height_fix'
 # conf.fire_surro_grad_func = 'asy'
-# conf.fire_surro_grad_func = 'asy_height_fix'
+conf.fire_surro_grad_func = 'asy_height_fix'
 
 
 # adaptive surrogate gradients
@@ -110,12 +110,12 @@ if conf.predictiveness_in_model :
 
 
 ##### model save setting #####
-conf.root_model_save = f'./model_ckpt_1/relu'
-# conf.root_model_save = f'./model_ckpt_1/{conf.fire_surro_grad_func}_beta={conf.surro_grad_beth}'
+# conf.root_model_save = f'./model_ckpt_1/relu'
+conf.root_model_save = f'./model_ckpt_1/{conf.fire_surro_grad_func}_beta={conf.surro_grad_beth}'
 # conf.root_model_save = f'./model_ckpt_1/test'
 
 ##########
-conf.exp_set_name = 'gradient_sparsity'
+conf.exp_set_name = 'gradient_gsnr_0716'
 # conf.exp_set_name = 'compare_boxcar_asy'
 # conf.exp_set_name = 'compare_boxcar_asy_0415'
 # conf.exp_set_name = '0417'

@@ -2115,15 +2115,15 @@ class Model(tf.keras.Model):
 
                     def predictiveness_model(gv):
                         def cosine_similarity(g1, g2):
-                            g1_flat = tf.reshape(g1, [-1])
-                            g2_flat = tf.reshape(g2, [-1])
-                            cosine_sim = tf.reduce_sum(g1_flat * g2_flat) / (tf.norm(g1_flat) * tf.norm(g2_flat) + 1e-8)
+                            cosine_sim = tf.reduce_sum(g1 * g2) / (tf.norm(g1) * tf.norm(g2) + 1e-8)
                             return cosine_sim
 
                         for (i, gv) in enumerate(gv):
                             for name in layer_names:
                                 if gv[1].name == name:
-                                    cos_sim = cosine_similarity(gv[0], self.gradients[i])
+                                    cur_grad_flat = tf.reshape(gv[0], [-1])
+                                    accum_grad_flat = tf.reshape(self.gradient[i], [-1])
+                                    cos_sim = cosine_similarity(cur_grad_flat, accum_grad_flat)
                                     with self.writer.as_default(step=self._train_counter):
                                         tf.summary.scalar(gv[1].name + 'cosine_similarity_model', data=cos_sim)
                                         self.writer.flush()
@@ -2144,23 +2144,40 @@ class Model(tf.keras.Model):
 
                     def gradient_sparsity_in_model(gv):
                         def grad_sparsity(grad_ret_flatten):
-                            grad_ret_flatten = tf.reshape(grad_ret_flatten, [-1])
                             gradient_mask = tf.cast(tf.not_equal(grad_ret_flatten, 0.0), tf.float32)
                             non_zero_gradient_rate = tf.reduce_mean(gradient_mask)
                             return non_zero_gradient_rate
 
+                        def gsnr(grad_ret_flatten):
+                            mask = tf.not_equal(grad_ret_flatten, 0.0)
+                            nonzero_grad = tf.boolean_mask(grad_ret_flatten, mask)
+                            grad_mean = tf.reduce_mean(nonzero_grad, axis=0)
+                            grad_variance = tf.math.reduce_variance(nonzero_grad, axis=0)
+                            gsnr = tf.square(grad_mean) / (grad_variance)
+                            return tf.reduce_mean(gsnr)
+
+
                         for (i, gv) in enumerate(gv):
+                            cur_grad_flatten = tf.reshape(gv[0], [-1])
                             for name in layer_names:
                                 if gv[1].name == name:
-                                    grad_sparse = grad_sparsity(gv[0])
+                                    grad_gsnr = gsnr(cur_grad_flatten)
+                                    grad_sparse = grad_sparsity(cur_grad_flatten)
+                                    grad_variance = tf.math.reduce_variance(cur_grad_flatten)
                                     with self.writer.as_default(step=self._train_counter):
                                         tf.summary.scalar(gv[1].name + 'sparsity_in_model/', data=grad_sparse)
-                                        tf.summary.histogram(gv[1].name + 'grad_histogram_in_model/', data=gv[0])
+                                        tf.summary.scalar(gv[1].name + 'variance_in_model/', data=grad_variance)
+                                        tf.summary.scalar(gv[1].name + 'gsnr_in_model/', data=grad_gsnr)
                                         self.writer.flush()
                         return tf.no_op()
 
+                    condition = tf.logical_and(
+                        tf.equal(tf.math.floormod(self._train_counter - 1, 1), 0),
+                        tf.greater(lib_snn.model.train_counter, 1)
+                    )
+
                     tf.cond(
-                        tf.equal(tf.math.floormod(self._train_counter, 2500), 1),
+                        condition,
                         lambda: gradient_sparsity_in_model(grads_accum_and_vars),
                         lambda: tf.no_op()
                     )

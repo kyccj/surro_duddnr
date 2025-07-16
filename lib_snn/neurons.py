@@ -1971,6 +1971,7 @@ class Neuron(tf.keras.layers.Layer):
                 h = tf.ones_like(vmem, dtype=tf.float32)
                 du_do = tf.where(cond, h, tf.zeros(cond.shape))
                 grad_ret = upstream * du_do
+                # grad_ret = grad_ret / (tf.norm(grad_ret) + 1e-8)
                 grad_ret_flatten = tf.reshape(grad_ret, [-1])
 
             elif conf.fire_surro_grad_func == 'triangle':
@@ -1985,6 +1986,7 @@ class Neuron(tf.keras.layers.Layer):
                 h = (1.0 - (distance / width_h))
                 du_do = tf.where(cond, h, tf.zeros(cond.shape))
                 grad_ret = upstream * du_do
+                # grad_ret = grad_ret / (tf.norm(grad_ret) + 1e-8)
                 grad_ret_flatten = tf.reshape(grad_ret, [-1])
 
             elif conf.fire_surro_grad_func == 'asy':
@@ -1998,6 +2000,7 @@ class Neuron(tf.keras.layers.Layer):
                 h = (1 / (2 * width_h)) * (vmem - 1) + 0.5
                 du_do = tf.where(cond, h, tf.zeros(cond.shape))
                 grad_ret = upstream * du_do
+                # grad_ret = grad_ret / (tf.norm(grad_ret) + 1e-8)
                 grad_ret_flatten = tf.reshape(grad_ret, [-1])
 
             if conf.adaptive_surrogate == True:
@@ -2144,7 +2147,7 @@ class Neuron(tf.keras.layers.Layer):
 
             else :
                 log_common_cond = tf.logical_and(
-                    tf.equal(tf.math.floormod(lib_snn.model.train_counter - 1, 2500), 0),
+                    tf.equal(tf.math.floormod(lib_snn.model.train_counter - 1, 1), 0),
                     tf.greater(lib_snn.model.train_counter, 1)
                 )
 
@@ -2155,17 +2158,28 @@ class Neuron(tf.keras.layers.Layer):
                             non_zero_gradient_rate = tf.reduce_mean(gradient_mask)
                             return non_zero_gradient_rate
 
-                        def write_grad_ret_sparsity(beta_val, sim_val, grad_hist, tag):
+                        def gsnr(grad_ret_flatten):
+                            mask = tf.not_equal(grad_ret_flatten, 0.0)
+                            nonzero_grad = tf.boolean_mask(grad_ret_flatten, mask)
+                            grad_mean = tf.reduce_mean(nonzero_grad, axis=0)
+                            grad_variance = tf.math.reduce_variance(nonzero_grad, axis=0)
+                            gsnr = tf.square(grad_mean)/(grad_variance)
+                            return tf.reduce_mean(gsnr)
+
+                        def write_grad_ret_sparsity(beta_val, sim_val, tag, variance, gsnr):
                             with self.writer.as_default(step=lib_snn.model.train_counter):
                                 tf.summary.scalar(f"{self.name}_beta/beta_{tag}", beta_val)
                                 tf.summary.scalar(f"{self.name}_sim/sparsity_{tag}", sim_val)
-                                tf.summary.histogram(f"{self.name}_grad_histogram_in_neuron/{tag}", grad_hist)
+                                tf.summary.scalar(f"{self.name}_variance/variance_{tag}", variance)
+                                tf.summary.scalar(f"{self.name}_gsnr/gsnr_{tag}", gsnr)
                                 self.writer.flush()
 
                         sparsity = grad_ret_sparsity(grad_ret_flatten)
+                        variance = tf.math.reduce_variance(grad_ret_flatten)
+                        grad_gsnr = gsnr(grad_ret_flatten)
                         tf.cond(log_common_cond,
                                 lambda: tf.py_function(write_grad_ret_sparsity,
-                                                       [self.beta[0], sparsity, grad_ret_flatten, t],
+                                                       [self.beta[0], sparsity, t, variance, grad_gsnr],
                                                        []),
                                 lambda: tf.no_op())
             # grad_ret = upstream * du_do
