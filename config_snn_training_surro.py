@@ -37,8 +37,8 @@ conf.weight_decay_AdamW = 2e-2
 ##########
 
 ##### neural network type setting #####
-conf.nn_mode = 'SNN'
-# conf.nn_mode = 'ANN'
+# conf.nn_mode = 'SNN'
+conf.nn_mode = 'ANN'
 
 conf.pooling_vgg = 'avg'
 ##########
@@ -67,11 +67,11 @@ conf.rand_erase_en = True
 
 # surrogate function shape
 # conf.fire_surro_grad_func = 'boxcar'
-# conf.fire_surro_grad_func = 'boxcar_height_fix'
+conf.fire_surro_grad_func = 'boxcar_height_fix'
 # conf.fire_surro_grad_func = 'triangle'
 # conf.fire_surro_grad_func = 'triangle_height_fix'
 # conf.fire_surro_grad_func = 'asy'
-conf.fire_surro_grad_func = 'asy_height_fix'
+# conf.fire_surro_grad_func = 'asy_height_fix'
 
 
 # adaptive surrogate gradients
@@ -115,7 +115,7 @@ conf.root_model_save = f'./model_ckpt_1/{conf.fire_surro_grad_func}_beta={conf.s
 # conf.root_model_save = f'./model_ckpt_1/test'
 
 ##########
-conf.exp_set_name = 'gradient_gsnr_0716'
+conf.exp_set_name = 'gradient_gsnr_0717'
 # conf.exp_set_name = 'compare_boxcar_asy'
 # conf.exp_set_name = 'compare_boxcar_asy_0415'
 # conf.exp_set_name = '0417'

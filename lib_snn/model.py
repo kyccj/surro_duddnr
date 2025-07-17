@@ -445,7 +445,7 @@ class Model(tf.keras.Model):
         if conf.debug_grad:
             self.writer = tf.summary.create_file_writer(config.path_tensorboard)
 
-        if conf.predictiveness_in_model :
+        if conf.predictiveness_in_model or conf.gradient_sparsity_in_model :
             self.gradients = {
                 0: tf.Variable(tf.zeros((3, 3, 3, 64)), trainable=False, name='conv1'),
                 4: tf.Variable(tf.zeros((3, 3, 64, 64)), trainable=False, name='conv1_1'),
@@ -1791,30 +1791,70 @@ class Model(tf.keras.Model):
 
         if conf.gradient_sparsity_in_model:
             layer_names = ["predictions/kernel:0", "fc2/kernel:0", "fc1/kernel:0", "conv5_2/kernel:0",
-                           "conv5_1/kernel:0", "conv5/kernel:0", "conv4_2/kernel:0", "conv4_1/kernel:0",
-                           "conv4/kernel:0", "conv3_2/kernel:0", "conv3_1/kernel:0", "conv3/kernel:0",
-                           "conv2_1/kernel:0", "conv2/kernel:0", "conv1_1/kernel:0", "conv1/kernel:0"]
+                           "conv4/kernel:0", "conv3/kernel:0", "conv2/kernel:0", "conv1/kernel:0"]
 
-            def gradient_sparsity_in_model(gv):
-                def grad_sparsity(grad_ret_flatten):
-                    grad_ret_flatten = tf.reshape(grad_ret_flatten, [-1])
+            def log_gradient_tensorboard_in_model(gv):
+                def effective_gradient(grad_ret_flatten):
                     gradient_mask = tf.cast(tf.not_equal(grad_ret_flatten, 0.0), tf.float32)
                     non_zero_gradient_rate = tf.reduce_mean(gradient_mask)
                     return non_zero_gradient_rate
 
+                def gsnr(grad_ret_flatten):
+                    grad_mean = tf.reduce_mean(grad_ret_flatten)
+                    grad_variance = tf.math.reduce_variance(grad_ret_flatten)
+                    gsnr = tf.square(grad_mean) / (grad_variance + 1e-8)
+                    return tf.reduce_mean(gsnr)
+
                 for (i, gv) in enumerate(gv):
                     for name in layer_names:
                         if gv[1].name == name:
-                            grad_sparse = grad_sparsity(gv[0])
+                            cur_grad_flat = tf.reshape(gv[0], [-1])
+                            accum_grad_flat = tf.reshape(self.gradients[i], [-1])
+                            diff = accum_grad_flat - cur_grad_flat
+
+                            effective_grad_rate = effective_gradient(cur_grad_flat)
+
+                            diff_mean = tf.reduce_mean(diff)
+                            diff_abs_mean = tf.reduce_mean(tf.abs(diff))
+                            diff_variance = tf.math.reduce_variance(diff)
+                            diff_max = tf.reduce_max(diff)
+                            diff_min = tf.reduce_min(diff)
+
+                            grad_mean = tf.reduce_mean(cur_grad_flat)
+                            grad_abs_mean = tf.reduce_mean(tf.abs(cur_grad_flat))
+                            grad_variance = tf.math.reduce_variance(cur_grad_flat)
+                            grad_max = tf.reduce_max(cur_grad_flat)
+                            grad_min = tf.reduce_min(cur_grad_flat)
+
+                            grad_gsnr = gsnr(cur_grad_flat)
                             with self.writer.as_default(step=self._train_counter):
-                                tf.summary.scalar(gv[1].name + 'sparsity_in_model/', data=grad_sparse)
-                                tf.summary.histogram(gv[1].name + 'grad_histogram_in_model/', data=gv[0])
+                                tf.summary.scalar(f'{gv[1].name}_effective_grad_rate_model', effective_grad_rate)
+
+                                tf.summary.scalar(f'{gv[1].name}_diff_mean_model', diff_mean)
+                                tf.summary.scalar(f'{gv[1].name}_diff_abs_mean_model', diff_abs_mean)
+                                tf.summary.scalar(f'{gv[1].name}_diff_variance_model', diff_variance)
+                                tf.summary.scalar(f'{gv[1].name}_diff_max_model', diff_max)
+                                tf.summary.scalar(f'{gv[1].name}_diff_min_model', diff_min)
+
+                                tf.summary.scalar(f'{gv[1].name}_grad_mean_model', grad_mean)
+                                tf.summary.scalar(f'{gv[1].name}_grad_abs_mean_model', grad_abs_mean)
+                                tf.summary.scalar(f'{gv[1].name}_grad_variance_model', grad_variance)
+                                tf.summary.scalar(f'{gv[1].name}_grad_max_model', grad_max)
+                                tf.summary.scalar(f'{gv[1].name}_grad_min_mean_model', grad_min)
+
+                                tf.summary.scalar(f'{gv[1].name}_grad_gsnr_model', grad_gsnr)
+
                                 self.writer.flush()
                 return tf.no_op()
 
+            condition = tf.logical_and(
+                tf.equal(tf.math.floormod(self._train_counter - 1, 1), 0),
+                tf.greater(lib_snn.model.train_counter, 1)
+            )
+
             tf.cond(
-                tf.equal(tf.math.floormod(self._train_counter, 2500), 1),
-                lambda: gradient_sparsity_in_model(grads_and_vars),
+                condition,
+                lambda: log_gradient_tensorboard_in_model(grads_and_vars),
                 lambda: tf.no_op()
             )
 
@@ -2138,36 +2178,60 @@ class Model(tf.keras.Model):
 
                 if conf.gradient_sparsity_in_model :
                     layer_names = ["predictions/kernel:0", "fc2/kernel:0", "fc1/kernel:0", "conv5_2/kernel:0",
-                                   "conv5_1/kernel:0", "conv5/kernel:0", "conv4_2/kernel:0", "conv4_1/kernel:0",
-                                   "conv4/kernel:0", "conv3_2/kernel:0", "conv3_1/kernel:0", "conv3/kernel:0",
-                                   "conv2_1/kernel:0", "conv2/kernel:0", "conv1_1/kernel:0", "conv1/kernel:0"]
+                                   "conv4/kernel:0", "conv3/kernel:0", "conv2/kernel:0", "conv1/kernel:0"]
 
-                    def gradient_sparsity_in_model(gv):
-                        def grad_sparsity(grad_ret_flatten):
+                    def log_gradient_tensorboard_in_model(gv):
+                        def effective_gradient(grad_ret_flatten):
                             gradient_mask = tf.cast(tf.not_equal(grad_ret_flatten, 0.0), tf.float32)
                             non_zero_gradient_rate = tf.reduce_mean(gradient_mask)
                             return non_zero_gradient_rate
 
                         def gsnr(grad_ret_flatten):
-                            mask = tf.not_equal(grad_ret_flatten, 0.0)
-                            nonzero_grad = tf.boolean_mask(grad_ret_flatten, mask)
-                            grad_mean = tf.reduce_mean(nonzero_grad, axis=0)
-                            grad_variance = tf.math.reduce_variance(nonzero_grad, axis=0)
-                            gsnr = tf.square(grad_mean) / (grad_variance)
+                            grad_mean = tf.reduce_mean(grad_ret_flatten)
+                            grad_variance = tf.math.reduce_variance(grad_ret_flatten)
+                            gsnr = tf.square(grad_mean) / (grad_variance + 1e-8)
                             return tf.reduce_mean(gsnr)
 
 
                         for (i, gv) in enumerate(gv):
-                            cur_grad_flatten = tf.reshape(gv[0], [-1])
                             for name in layer_names:
                                 if gv[1].name == name:
-                                    grad_gsnr = gsnr(cur_grad_flatten)
-                                    grad_sparse = grad_sparsity(cur_grad_flatten)
-                                    grad_variance = tf.math.reduce_variance(cur_grad_flatten)
+                                    cur_grad_flat = tf.reshape(gv[0], [-1])
+                                    accum_grad_flat = tf.reshape(self.gradients[i], [-1])
+                                    diff = accum_grad_flat - cur_grad_flat
+
+                                    effective_grad_rate = effective_gradient(cur_grad_flat)
+
+                                    diff_mean = tf.reduce_mean(diff)
+                                    diff_abs_mean = tf.reduce_mean(tf.abs(diff))
+                                    diff_variance = tf.math.reduce_variance(diff)
+                                    diff_max = tf.reduce_max(diff)
+                                    diff_min = tf.reduce_min(diff)
+
+                                    grad_mean = tf.reduce_mean(cur_grad_flat)
+                                    grad_abs_mean = tf.reduce_mean(tf.abs(cur_grad_flat))
+                                    grad_variance = tf.math.reduce_variance(cur_grad_flat)
+                                    grad_max = tf.reduce_max(cur_grad_flat)
+                                    grad_min = tf.reduce_min(cur_grad_flat)
+
+                                    grad_gsnr = gsnr(cur_grad_flat)
                                     with self.writer.as_default(step=self._train_counter):
-                                        tf.summary.scalar(gv[1].name + 'sparsity_in_model/', data=grad_sparse)
-                                        tf.summary.scalar(gv[1].name + 'variance_in_model/', data=grad_variance)
-                                        tf.summary.scalar(gv[1].name + 'gsnr_in_model/', data=grad_gsnr)
+                                        tf.summary.scalar(f'{gv[1].name}_effective_grad_rate_model', effective_grad_rate)
+
+                                        tf.summary.scalar(f'{gv[1].name}_diff_mean_model', diff_mean)
+                                        tf.summary.scalar(f'{gv[1].name}_diff_abs_mean_model', diff_abs_mean)
+                                        tf.summary.scalar(f'{gv[1].name}_diff_variance_model', diff_variance)
+                                        tf.summary.scalar(f'{gv[1].name}_diff_max_model', diff_max)
+                                        tf.summary.scalar(f'{gv[1].name}_diff_min_model', diff_min)
+
+                                        tf.summary.scalar(f'{gv[1].name}_grad_mean_model', grad_mean)
+                                        tf.summary.scalar(f'{gv[1].name}_grad_abs_mean_model', grad_abs_mean)
+                                        tf.summary.scalar(f'{gv[1].name}_grad_variance_model', grad_variance)
+                                        tf.summary.scalar(f'{gv[1].name}_grad_max_model', grad_max)
+                                        tf.summary.scalar(f'{gv[1].name}_grad_min_mean_model',grad_min)
+
+                                        tf.summary.scalar(f'{gv[1].name}_grad_gsnr_model', grad_gsnr)
+
                                         self.writer.flush()
                         return tf.no_op()
 
@@ -2178,7 +2242,7 @@ class Model(tf.keras.Model):
 
                     tf.cond(
                         condition,
-                        lambda: gradient_sparsity_in_model(grads_accum_and_vars),
+                        lambda: log_gradient_tensorboard_in_model(grads_accum_and_vars),
                         lambda: tf.no_op()
                     )
 

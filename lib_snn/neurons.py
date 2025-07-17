@@ -2146,42 +2146,81 @@ class Neuron(tf.keras.layers.Layer):
                             lambda: tf.no_op())
 
             else :
-                log_common_cond = tf.logical_and(
-                    tf.equal(tf.math.floormod(lib_snn.model.train_counter - 1, 1), 0),
-                    tf.greater(lib_snn.model.train_counter, 1)
-                )
-
                 if conf.debug_surro_grad:
                     if conf.gradient_sparsity_in_neuron:
-                        def grad_ret_sparsity(grad_ret_flatten):
-                            gradient_mask = tf.cast(tf.not_equal(grad_ret_flatten, 0.0), tf.float32)
-                            non_zero_gradient_rate = tf.reduce_mean(gradient_mask)
-                            return non_zero_gradient_rate
+                        target_names = ['n_conv1', 'n_conv2', 'n_conv3', 'n_conv4', 'n_conv5_2', 'n_fc1', 'n_fc2']
 
-                        def gsnr(grad_ret_flatten):
-                            mask = tf.not_equal(grad_ret_flatten, 0.0)
-                            nonzero_grad = tf.boolean_mask(grad_ret_flatten, mask)
-                            grad_mean = tf.reduce_mean(nonzero_grad, axis=0)
-                            grad_variance = tf.math.reduce_variance(nonzero_grad, axis=0)
-                            gsnr = tf.square(grad_mean)/(grad_variance)
-                            return tf.reduce_mean(gsnr)
+                        name_cond = tf.reduce_any([tf.equal(self.name, n) for n in target_names])
 
-                        def write_grad_ret_sparsity(beta_val, sim_val, tag, variance, gsnr):
+                        log_common_cond = tf.logical_and(
+                            tf.equal(tf.math.floormod(lib_snn.model.train_counter - 1, 1), 0),
+                            tf.greater(lib_snn.model.train_counter, 1)
+                        )
+
+                        condition = tf.logical_and(log_common_cond, name_cond)
+
+                        def log_gradient_tensorboard(grad_ret_flatten, upstream, f_fire):
+                            def effective_gradient(grad_ret_flatten):
+                                gradient_mask = tf.cast(tf.not_equal(grad_ret_flatten, 0.0), tf.float32)
+                                non_zero_gradient_rate = tf.reduce_mean(gradient_mask)
+                                return non_zero_gradient_rate
+
+                            def gsnr(grad_ret_flatten):
+                                grad_mean = tf.reduce_mean(grad_ret_flatten)
+                                grad_variance = tf.math.reduce_variance(grad_ret_flatten)
+                                gsnr = tf.square(grad_mean) / (grad_variance + 1e-8)
+                                return tf.reduce_mean(gsnr)
+
+                            f_fire_float = tf.cast(f_fire, tf.float32)
+                            firing_rate = tf.reduce_mean(f_fire_float)
+
+                            effective_grad_rate = effective_gradient(grad_ret_flatten)
+                            grad_gsnr = gsnr(grad_ret_flatten)
+
+                            upstream_mean = tf.reduce_mean(upstream)
+                            upstream_abs_mean = tf.reduce_mean(tf.abs(upstream))
+                            upstream_variance = tf.math.reduce_variance(upstream)
+                            upstream_max = tf.reduce_max(upstream)
+                            upstream_min = tf.reduce_min(upstream)
+
+                            grad_mean = tf.reduce_mean(grad_ret_flatten)
+                            grad_abs_mean = tf.reduce_mean(tf.abs(grad_ret_flatten))
+                            grad_variance = tf.math.reduce_variance(grad_ret_flatten)
+                            grad_max = tf.reduce_max(grad_ret_flatten)
+                            grad_min = tf.reduce_min(grad_ret_flatten)
+
                             with self.writer.as_default(step=lib_snn.model.train_counter):
-                                tf.summary.scalar(f"{self.name}_beta/beta_{tag}", beta_val)
-                                tf.summary.scalar(f"{self.name}_sim/sparsity_{tag}", sim_val)
-                                tf.summary.scalar(f"{self.name}_variance/variance_{tag}", variance)
-                                tf.summary.scalar(f"{self.name}_gsnr/gsnr_{tag}", gsnr)
-                                self.writer.flush()
+                                tf.summary.scalar(f'{self.name}_beta/{t}', self.beta[t-1])
+                                tf.summary.scalar(f'{self.name}_firing_rate/{t}', firing_rate)
+                                tf.summary.scalar(f'{self.name}_effective_grad_rate/{t}' , effective_grad_rate)
 
-                        sparsity = grad_ret_sparsity(grad_ret_flatten)
-                        variance = tf.math.reduce_variance(grad_ret_flatten)
-                        grad_gsnr = gsnr(grad_ret_flatten)
-                        tf.cond(log_common_cond,
-                                lambda: tf.py_function(write_grad_ret_sparsity,
-                                                       [self.beta[0], sparsity, t, variance, grad_gsnr],
-                                                       []),
-                                lambda: tf.no_op())
+                                tf.summary.scalar(f'{self.name}_activation_error/mean_{t}', upstream_mean)
+                                tf.summary.scalar(f'{self.name}_activation_error/abs_mean_{t}', upstream_abs_mean)
+                                tf.summary.scalar(f'{self.name}_activation_error/variance_{t}', upstream_variance)
+                                tf.summary.scalar(f'{self.name}_activation_error/max_{t}', upstream_max)
+                                tf.summary.scalar(f'{self.name}_activation_error/min_{t}', upstream_min)
+
+                                tf.summary.scalar(f'{self.name}_gradient/mean_{t}', grad_mean)
+                                tf.summary.scalar(f'{self.name}_gradient/abs_mean_{t}', grad_abs_mean)
+                                tf.summary.scalar(f'{self.name}_gradient/variance_{t}', grad_variance)
+                                tf.summary.scalar(f'{self.name}_gradient/max_{t}', grad_max)
+                                tf.summary.scalar(f'{self.name}_gradient/min_{t}', grad_min)
+
+                                tf.summary.scalar(f'{self.name}_grad_gsnr/{t}', grad_gsnr)
+                                self.writer.flush()
+                            return tf.no_op()
+
+                        tf.cond(
+                            condition,
+                            lambda: log_gradient_tensorboard(grad_ret_flatten, upstream, f_fire),
+                            lambda: tf.no_op()
+                        )
+
+
+
+
+
+
             # grad_ret = upstream * du_do
             # grad_ret = grad_ret / (tf.norm(grad_ret) + 1e-8)
             # grad_ret_flatten = tf.reshape(grad_ret, [-1])
