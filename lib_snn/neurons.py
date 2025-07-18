@@ -2153,7 +2153,7 @@ class Neuron(tf.keras.layers.Layer):
                         name_cond = tf.reduce_any([tf.equal(self.name, n) for n in target_names])
 
                         log_common_cond = tf.logical_and(
-                            tf.equal(tf.math.floormod(lib_snn.model.train_counter - 1, 1), 0),
+                            tf.equal(tf.math.floormod(lib_snn.model.train_counter - 1, 10), 0),
                             tf.greater(lib_snn.model.train_counter, 1)
                         )
 
@@ -2864,6 +2864,28 @@ class Neuron(tf.keras.layers.Layer):
 
         #
         spike, vmem_gen = self.input_spike_gen(inputs, vmem, t)
+
+        def plot_spike(spike_tensor):
+            spike = spike_tensor.numpy()
+            batch_index = 0
+            on_frame = spike[batch_index, ..., 0]
+            off_frame = spike[batch_index, ..., 1]
+
+            on_frame = (on_frame - on_frame.min()) / (on_frame.max() - on_frame.min() + 1e-6)
+            off_frame = (off_frame - off_frame.min()) / (off_frame.max() - off_frame.min() + 1e-6)
+
+            rgb = np.zeros((48, 48, 3))
+            rgb[..., 0] = on_frame
+            rgb[..., 1] = off_frame
+
+            plt.figure(figsize=(4, 4))
+            plt.imshow(rgb)
+            plt.title("Spike Sample 0")
+            plt.axis('off')
+            plt.show()
+            return 0
+
+        _ = tf.py_function(plot_spike, [spike], Tout=[tf.int32])
         #self.count_spike(t)
         return spike, vmem_gen
 

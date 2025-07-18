@@ -33,7 +33,7 @@ class ReLU_yongjin(_BaseReLU):
                 name_cond = tf.reduce_any([tf.equal(self.name, n) for n in target_names])
 
                 log_common_cond = tf.logical_and(
-                    tf.equal(tf.math.floormod(lib_snn.model.train_counter - 1, 1), 0),
+                    tf.equal(tf.math.floormod(lib_snn.model.train_counter - 1, 10), 0),
                     tf.greater(lib_snn.model.train_counter, 1)
                 )
 

@@ -1848,7 +1848,7 @@ class Model(tf.keras.Model):
                 return tf.no_op()
 
             condition = tf.logical_and(
-                tf.equal(tf.math.floormod(self._train_counter - 1, 1), 0),
+                tf.equal(tf.math.floormod(self._train_counter - 1, 10), 0),
                 tf.greater(lib_snn.model.train_counter, 1)
             )
 
@@ -2236,7 +2236,7 @@ class Model(tf.keras.Model):
                         return tf.no_op()
 
                     condition = tf.logical_and(
-                        tf.equal(tf.math.floormod(self._train_counter - 1, 1), 0),
+                        tf.equal(tf.math.floormod(self._train_counter - 1, 10), 0),
                         tf.greater(lib_snn.model.train_counter, 1)
                     )
 
@@ -3477,21 +3477,43 @@ class Model(tf.keras.Model):
 
                     _input = tensor_dict[x_id][0]
                     #args, kwargs = node.map_arguments(tensor_dict)
+
+                    glb_t.reset()
+                    ####origin
+                    # layer_out = tf.TensorArray(
+                    #     dtype=tf.float32,
+                    #     size=self.conf.time_step,
+                    #     element_shape=_input.shape,
+                    #     clear_after_read=False,
+                    #     tensor_array_name=tensor_array_name)
+                    # for t in range(1,self.conf.time_step+1):
+                    #     if conf.input_data_time_dim:    # event data
+                    #         _input_t = _input[:,t-1,:,:,:]
+                    #     else:   # static image
+                    #         _input_t = _input
+                    #     layer_out = layer_out.write(t-1,_input)
+                    #     glb_t()
+                        #########
+                    if conf.input_data_time_dim:
+                        element_shape = [_input.shape[0], _input.shape[2], _input.shape[3], _input.shape[4]]
+                    else:
+                        element_shape = _input.shape
+
                     layer_out = tf.TensorArray(
                         dtype=tf.float32,
                         size=self.conf.time_step,
-                        element_shape=_input.shape,
+                        element_shape=element_shape,
                         clear_after_read=False,
-                        tensor_array_name=tensor_array_name)
+                        tensor_array_name=tensor_array_name
+                    )
 
-                    glb_t.reset()
-                    for t in range(1,self.conf.time_step+1):
+                    for t in range(1, self.conf.time_step + 1):
                         if conf.input_data_time_dim:    # event data
                             _input_t = _input[:,t-1,:,:,:]
                         else:   # static image
                             _input_t = _input
-                        layer_out = layer_out.write(t-1,_input)
-                        glb_t()
+                        layer_out = layer_out.write(t-1,_input_t)
+                    glb_t()
 
                     #continue  # Input tensors already exist.
 

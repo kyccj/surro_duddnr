@@ -125,7 +125,7 @@ with dist_strategy.scope():
     # load model
     ########################################
     if config.load_model:
-        model.load_weights(config.load_weight)
+        model.load_weights(config.load_weight, by_name=True, skip_mismatch=True)
 
     ################
     # Callbacks

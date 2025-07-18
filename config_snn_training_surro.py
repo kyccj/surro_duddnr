@@ -24,7 +24,7 @@ conf.save_models_max_to_keep = 1
 ##### inference mode setting #####
 # conf.mode='inference'
 #conf.batch_size=400
-# conf.name_model_load='/home/dydwls6598/PycharmProjects/Surro/model_ckpt_test/predictiveness_asy_all_timestep_sim_1.0_1.0_accumulate_5epoch/VGG16_AP_CIFAR10/ep-310_bat-100_opt-ADAMW_lr-COS-1E-05 to 6E-03_wd-2E-02_sc_ra_cm_re_ts-4_nc-R-R_nr-s/'
+conf.name_model_load='/home/duddnr254/PycharmProjects/Surro/model_ckpt_1/asy_height_fix_beta=0.75/VGG16_AP_CIFAR10/ep-310_bat-100_opt-ADAMW_lr-COS-1E-05 to 6E-03_wd-2E-02_sc_ra_cm_re_ts-4_nc-R-R_nr-s'
 ##########
 
 ##### hyper-parameter setting #####
@@ -37,8 +37,8 @@ conf.weight_decay_AdamW = 2e-2
 ##########
 
 ##### neural network type setting #####
-# conf.nn_mode = 'SNN'
-conf.nn_mode = 'ANN'
+conf.nn_mode = 'SNN'
+# conf.nn_mode = 'ANN'
 
 conf.pooling_vgg = 'avg'
 ##########
@@ -48,7 +48,7 @@ conf.label_smoothing=0.1
 conf.debug_lr = True
 conf.lmb=1E-3
 conf.regularizer=None
-#conf.data_aug_mix='mixup'
+
 
 conf.mix_off_iter = 500*200
 conf.mix_alpha = 0.5
@@ -96,12 +96,12 @@ else :
 # conf.find_beta_low = 1
 # conf.find_beta_high = 10.0
 ##########
-conf.debug_grad = True
-conf.debug_surro_grad = True
+# conf.debug_grad = True
+# conf.debug_surro_grad = True
 # conf.plot_predictiveness_in_neurons = True
 # conf.predictiveness_in_model = True
-conf.gradient_sparsity_in_model = True
-conf.gradient_sparsity_in_neuron = True
+# conf.gradient_sparsity_in_model = True
+# conf.gradient_sparsity_in_neuron = True
 
 if conf.predictiveness_in_model :
     conf.debug_mode = True
@@ -110,8 +110,8 @@ if conf.predictiveness_in_model :
 
 
 ##### model save setting #####
-# conf.root_model_save = f'./model_ckpt_1/relu'
-conf.root_model_save = f'./model_ckpt_1/{conf.fire_surro_grad_func}_beta={conf.surro_grad_beth}'
+conf.root_model_save = f'./model_ckpt_1/relu'
+# conf.root_model_save = f'./model_ckpt_1/{conf.fire_surro_grad_func}_beta={conf.surro_grad_beth}'
 # conf.root_model_save = f'./model_ckpt_1/test'
 
 ##########
@@ -142,7 +142,7 @@ conf.exp_set_name = 'gradient_gsnr_0717'
 
 ##### Model setting #####
 ###### VGG16
-conf.SEL_model_dataset = 'V16_C10'
+# conf.SEL_model_dataset = 'V16_C10'
 # conf.SEL_model_dataset = 'V16_C100'
 # conf.SEL_model_dataset = 'V16_DVS'
 
@@ -150,7 +150,7 @@ conf.SEL_model_dataset = 'V16_C10'
 # conf.SEL_model_dataset = 'V11_DVS'
 
 ###### VGGSNN
-# conf.SEL_model_dataset = 'VSNN_DVS'
+conf.SEL_model_dataset = 'VSNN_DVS'
 
 ###### ResNet19
 # conf.SEL_model_dataset = 'R19_C10'
@@ -336,6 +336,7 @@ elif conf.dataset == 'CIFAR10_DVS':
     conf.batch_size = 32
     conf.train_epoch = 310
     conf.time_step = 4
+    # conf.data_aug_mix='nda'
     # conf.mix_off_iter = 281 * 150
     # conf.accumulate_iteration = 281*5
 elif conf.dataset == 'ImageNet':
