@@ -90,8 +90,6 @@ class Neuron(tf.keras.layers.Layer):
 
         #self.leak_const = tf.Variable(self.leak_const_init,trainable=leak_const_train,dtype=tf.float32,shape=self.dim,name='leak_const')
         self.leak_const = tf.Variable(self.leak_const_init,trainable=leak_const_train,dtype=tf.float32,shape=self.dim_wo_batch,name='leak_const')
-
-
         # vth scheduling
         self.vth_schedule = []
 
@@ -213,6 +211,10 @@ class Neuron(tf.keras.layers.Layer):
 
             self.pre_g = tf.Variable([tf.zeros([prod_dim])] * (conf.time_step - 1), dtype=tf.float32, trainable=False,
                                      name='previous_timestep_gradients')
+
+            self.sum_effective_grad_rate = tf.Variable(0.0, dtype=tf.float32, trainable=False, name='sum_effective_grad_rate')
+            self.count_effective_grad_rate = tf.Variable(0.0, dtype=tf.float32, trainable=False, name='count_effective_grad_rate')
+            self.avg_effective_grad_rate = tf.Variable(0.0, dtype=tf.float32, trainable=False, name='avg_effective_grad_rate')
         else :
             self.beta = tf.Variable([conf.surro_grad_beth] * conf.time_step, dtype=tf.float32, trainable=False,
                                     name='beta')
@@ -1416,7 +1418,6 @@ class Neuron(tf.keras.layers.Layer):
 
     #
     def leak(self,vmem, t):
-
         vmem_leak = tf.multiply(vmem, self.leak_const)
         #self.vmem.assign(vmem_leak)
         #self.vmem.assign(tf.multiply(self.vmem, self.leak_const))
@@ -1734,16 +1735,6 @@ class Neuron(tf.keras.layers.Layer):
             spike = tf.where(f_fire, vth, self.zeros)
 
         def grad(upstream):
-            # print(upstream.shape)
-            #a=0.5
-            #a=1.0
-            #cond_1=tf.math.less_equal(tf.math.abs(vmem-vth),a)
-
-            # original
-            #cond_1=tf.math.less_equal(tf.math.abs(vmem-vth),a)
-            #cond=cond_1
-            # boxcar
-
             def compute_gradient(beta):
                 width_h = beta
                 cond_lower = tf.math.greater_equal(vmem, vth - width_h)
@@ -1775,21 +1766,10 @@ class Neuron(tf.keras.layers.Layer):
                 cos_sim = tf.reduce_sum(vec1 * vec2) / (tf.norm(vec1) * tf.norm(vec2) + 1e-8)
                 return cos_sim
 
-            def similarity_t4(vec1, vec2, alpha=0.5):
-                cos_sim = tf.reduce_sum(vec1 * vec2) / (tf.norm(vec1) * tf.norm(vec2) + 1e-8)
-
-                # def non_zero_gradient_rate(x):
-                #     gradient_mask = tf.cast(tf.not_equal(x, 0.0), tf.float32)
-                #     return tf.reduce_mean(gradient_mask)
-                #
-                # non_zero_gradient_rate1 = non_zero_gradient_rate(vec1)
-                # non_zero_gradient_rate2 = non_zero_gradient_rate(vec2)
-                # non_zero_gradient_rate12 = tf.reduce_sum(non_zero_gradient_rate1 * non_zero_gradient_rate2)
-                #
-                # scale_factor = 100.0
-                # scaled_cos_sim = scale_factor * cos_sim
-                # return alpha * scaled_cos_sim + (1 - alpha) * non_zero_gradient_rate12
-                return cos_sim
+            def similarity_t4(vec1):
+                abs_mean = tf.reduce_mean(tf.abs(vec1))
+                variance = tf.math.reduce_variance(vec1)
+                return 1 - variance / abs_mean
 
             def rbf_kernel(X1, X2, length_scale=1.0, sigma_f=1.0):
                 X1_sq = tf.reduce_sum(tf.square(X1), axis=1, keepdims=True)
@@ -1828,11 +1808,7 @@ class Neuron(tf.keras.layers.Layer):
             def find_beta_update(target_beta, ref_gradient):
                 def compute_similarity(beta):
                     current_gradient_vector = compute_gradient(beta)
-                    return tf.cond(
-                        tf.equal(t, conf.time_step),
-                        lambda: similarity(ref_gradient, current_gradient_vector),
-                        lambda: similarity_t4(ref_gradient, current_gradient_vector)
-                    )
+                    return similarity(ref_gradient, current_gradient_vector)
 
                 n = tf.constant(conf.train_beta_candidate_number, dtype=tf.int32)
                 low_init = conf.find_beta_low
@@ -1850,7 +1826,7 @@ class Neuron(tf.keras.layers.Layer):
                 Y_observed = Y_observed.scatter(tf.range(n), initial_y_train)
 
                 def cond(iteration, x_tensor, y_tensor, best_beta):
-                    return tf.less(iteration, 2)
+                    return tf.less(iteration, 1)
 
                 def plot_predictiveness(iteration, X_train, Y_train, X_test, ei, beta_next, true_sim_vals,
                                         grid_for_true, save_dir, file_name_suffix):
@@ -1893,31 +1869,28 @@ class Neuron(tf.keras.layers.Layer):
                     X_train = tf.reshape(x_tensor.stack(), [-1, 1])
                     Y_train = y_tensor.stack()
 
+                    best_idx = tf.argmax(Y_train)
+                    best_beta = X_train[best_idx, 0]
+                    y_best_obs = Y_train[best_idx]
+
+                    delta = 0.05
+                    left = tf.clip_by_value(best_beta - delta, low_init, high_init)
+                    right = tf.clip_by_value(best_beta + delta, low_init, high_init)
+
                     test_num = conf.test_beta_candidate_number_0
-                    X_test = tf.linspace(low_init, high_init, test_num)
+                    X_test = tf.linspace(left, right, test_num)
                     X_test = tf.reshape(X_test, [-1, 1])
 
                     mu_s, std_s = gp_posterior(X_train, Y_train, X_test)
                     f_best = tf.reduce_max(Y_train)
                     ei = expected_improvement(mu_s, std_s, f_best, xi=0.0)
 
-                    num_to_add = 30
-                    _, top_indices = tf.math.top_k(ei, k=num_to_add)
-                    beta_next_batch = tf.gather(X_test, top_indices)
+                    best_idx = tf.argmax(ei)
+                    beta_next_scalar = X_test[best_idx, 0]
+                    y_candidate_best = compute_similarity(beta_next_scalar)
 
-                    y_next_batch = tf.map_fn(
-                        lambda beta: compute_similarity(beta[0]),
-                        beta_next_batch,
-                        fn_output_signature=tf.float32
-                    )
-
-                    current_size = x_tensor.size()
-                    indices_to_write = tf.range(current_size, current_size + num_to_add)
-
-                    x_tensor_new = x_tensor.scatter(indices_to_write, tf.squeeze(beta_next_batch))
-                    y_tensor_new = y_tensor.scatter(indices_to_write, y_next_batch)
-
-                    last_beta_in_batch = beta_next_batch[-1]
+                    cond_better = tf.greater(y_best_obs, y_candidate_best)
+                    beta_next_scalar = tf.where(cond_better, best_beta, beta_next_scalar)
 
                     if conf.plot_predictiveness_in_neurons:
                         grid_for_true = tf.linspace(conf.find_beta_low, conf.find_beta_high, 500)
@@ -1927,7 +1900,7 @@ class Neuron(tf.keras.layers.Layer):
                         save_dir = f"./beta_plot/{conf.train_beta_candidate_number}/{self.name}"
                         file_name_suffix = f"t{t}_iter_{iteration.numpy()}_step{lib_snn.model.train_counter.numpy()}"
 
-                        best_beta_for_plot = beta_next_batch[0]
+                        best_beta_for_plot = beta_next_scalar
 
                         _ = tf.py_function(
                             func=plot_predictiveness,
@@ -1938,7 +1911,130 @@ class Neuron(tf.keras.layers.Layer):
                             Tout=[tf.int32]
                         )
 
-                    return iteration + 1, x_tensor_new, y_tensor_new, tf.squeeze(last_beta_in_batch)
+                    return iteration + 1, x_tensor, y_tensor, beta_next_scalar
+
+                _, final_x_ta, final_y_ta, _ = tf.while_loop(
+                    cond,
+                    body,
+                    [tf.constant(0), X_observed, Y_observed, best_beta_init]
+                )
+
+                all_y_observed = final_y_ta.stack()
+                best_overall_idx = tf.argmax(all_y_observed)
+
+                all_x_observed = final_x_ta.stack()
+                best_beta_overall = tf.gather(all_x_observed, best_overall_idx)
+
+                target_beta.assign(best_beta_overall)
+                return tf.constant(0.)
+
+            def find_beta_update_t4(target_beta):
+                def compute_similarity(beta):
+                    current_gradient_vector = compute_gradient(beta)
+                    return similarity_t4(current_gradient_vector)
+
+                n = tf.constant(conf.train_beta_candidate_number, dtype=tf.int32)
+                low_init = conf.find_beta_low
+                high_init = conf.find_beta_high
+                best_beta_init = low_init
+
+                initial_grid_points = tf.linspace(low_init, high_init, n)
+                initial_y_train = tf.map_fn(lambda beta: compute_similarity(beta), initial_grid_points,
+                                            fn_output_signature=tf.float32)
+
+                X_observed = tf.TensorArray(dtype=tf.float32, size=0, dynamic_size=True, clear_after_read=False)
+                Y_observed = tf.TensorArray(dtype=tf.float32, size=0, dynamic_size=True, clear_after_read=False)
+
+                X_observed = X_observed.scatter(tf.range(n), initial_grid_points)
+                Y_observed = Y_observed.scatter(tf.range(n), initial_y_train)
+
+                def cond(iteration, x_tensor, y_tensor, best_beta):
+                    return tf.less(iteration, 1)
+
+                def plot_predictiveness(iteration, X_train, Y_train, X_test, ei, beta_next, true_sim_vals,
+                                        grid_for_true, save_dir, file_name_suffix):
+                    save_dir = f"./beta_plot/{conf.train_beta_candidate_number}/{self.name}"
+                    os.makedirs(save_dir, exist_ok=True)
+
+                    x_grid = X_train.numpy().flatten()
+                    y_vals = Y_train.numpy().flatten()
+                    x_test_vals = X_test.numpy().flatten()
+                    ei_vals = ei.numpy().flatten()
+                    grid_for_true_np = grid_for_true.numpy().flatten()
+                    true_sim_vals_np = true_sim_vals.numpy().flatten()
+
+                    sort_idx = np.argsort(x_test_vals)
+                    x_test_sorted = x_test_vals[sort_idx]
+                    ei_sorted = ei_vals[sort_idx]
+
+                    plt.close('all')
+                    plt.figure(figsize=(16, 8))
+
+                    plt.plot(x_grid, y_vals, 'o', label="Predictiveness (Y_train)", color='blue')
+                    plt.plot(x_test_sorted, ei_sorted, label="Expected Improvement (EI)", color='purple',
+                             linestyle='--')
+                    plt.plot(grid_for_true_np, true_sim_vals_np, label="True Similarity", linestyle=":", color="black")
+                    plt.axvline(x=beta_next.numpy(), color='red', linestyle='--', label="Chosen beta")
+
+                    plt.title(f"Predictiveness & EI (iteration={iteration.numpy()})")
+                    plt.xlabel("beta")
+                    plt.ylabel("Value")
+                    plt.legend()
+                    plt.grid(True)
+                    plt.tight_layout()
+
+                    save_path = os.path.join(save_dir, f"iteration{file_name_suffix}.png")
+                    plt.savefig(save_path)
+                    plt.close()
+                    return 0
+
+                def body(iteration, x_tensor, y_tensor, best_beta):
+                    X_train = tf.reshape(x_tensor.stack(), [-1, 1])
+                    Y_train = y_tensor.stack()
+
+                    best_idx = tf.argmax(Y_train)
+                    best_beta = X_train[best_idx, 0]
+                    y_best_obs = Y_train[best_idx]
+
+                    delta = 0.05
+                    left = tf.clip_by_value(best_beta - delta, low_init, high_init)
+                    right = tf.clip_by_value(best_beta + delta, low_init, high_init)
+
+                    test_num = conf.test_beta_candidate_number_0
+                    X_test = tf.linspace(left, right, test_num)
+                    X_test = tf.reshape(X_test, [-1, 1])
+
+                    mu_s, std_s = gp_posterior(X_train, Y_train, X_test)
+                    f_best = tf.reduce_max(Y_train)
+                    ei = expected_improvement(mu_s, std_s, f_best, xi=0.0)
+
+                    best_idx = tf.argmax(ei)
+                    beta_next_scalar = X_test[best_idx, 0]
+                    y_candidate_best = compute_similarity(beta_next_scalar)
+
+                    cond_better = tf.greater(y_best_obs, y_candidate_best)
+                    beta_next_scalar = tf.where(cond_better, best_beta, beta_next_scalar)
+
+                    if conf.plot_predictiveness_in_neurons:
+                        grid_for_true = tf.linspace(conf.find_beta_low, conf.find_beta_high, 500)
+                        true_sim_vals = tf.map_fn(lambda beta: compute_similarity(beta), grid_for_true,
+                                                  fn_output_signature=tf.float32)
+
+                        save_dir = f"./beta_plot/{conf.train_beta_candidate_number}/{self.name}"
+                        file_name_suffix = f"t{t}_iter_{iteration.numpy()}_step{lib_snn.model.train_counter.numpy()}"
+
+                        best_beta_for_plot = beta_next_scalar
+
+                        _ = tf.py_function(
+                            func=plot_predictiveness,
+                            inp=[
+                                iteration, X_train, Y_train, X_test, ei, best_beta_for_plot,
+                                true_sim_vals, grid_for_true, save_dir, file_name_suffix
+                            ],
+                            Tout=[tf.int32]
+                        )
+
+                    return iteration + 1, x_tensor, y_tensor, beta_next_scalar
 
                 _, final_x_ta, final_y_ta, _ = tf.while_loop(
                     cond,
@@ -1971,7 +2067,6 @@ class Neuron(tf.keras.layers.Layer):
                 h = tf.ones_like(vmem, dtype=tf.float32)
                 du_do = tf.where(cond, h, tf.zeros(cond.shape))
                 grad_ret = upstream * du_do
-                # grad_ret = grad_ret / (tf.norm(grad_ret) + 1e-8)
                 grad_ret_flatten = tf.reshape(grad_ret, [-1])
 
             elif conf.fire_surro_grad_func == 'triangle':
@@ -1986,7 +2081,6 @@ class Neuron(tf.keras.layers.Layer):
                 h = (1.0 - (distance / width_h))
                 du_do = tf.where(cond, h, tf.zeros(cond.shape))
                 grad_ret = upstream * du_do
-                # grad_ret = grad_ret / (tf.norm(grad_ret) + 1e-8)
                 grad_ret_flatten = tf.reshape(grad_ret, [-1])
 
             elif conf.fire_surro_grad_func == 'asy':
@@ -2000,50 +2094,47 @@ class Neuron(tf.keras.layers.Layer):
                 h = (1 / (2 * width_h)) * (vmem - 1) + 0.5
                 du_do = tf.where(cond, h, tf.zeros(cond.shape))
                 grad_ret = upstream * du_do
-                # grad_ret = grad_ret / (tf.norm(grad_ret) + 1e-8)
                 grad_ret_flatten = tf.reshape(grad_ret, [-1])
 
             if conf.adaptive_surrogate == True:
-                #### accumulate_t4_gradient_in_other_epoch ####
-                accumulate_sum_g_4_cond = tf.logical_and(
-                    tf.equal(t, conf.time_step),
-                    tf.logical_not(
-                        tf.equal(tf.math.floormod(lib_snn.model.train_counter, conf.accumulate_iteration), 0))
-                )
-
-                def accumulate_sum_and_count():
-                    with tf.control_dependencies([
-                        self.sum_g_4.assign_add(grad_ret_flatten),
-                        self.count_g_4.assign_add(1.0)
-                    ]):
-                        return tf.constant(0.0)
-
-                tf.cond(accumulate_sum_g_4_cond,
-                        accumulate_sum_and_count,
-                        lambda: tf.constant(0.))
-
-                ############################################
-
-                #### average_t4_gradient_in_last_epoch ####
-                finalize_avg_g_4_cond = tf.logical_and(
-                    tf.equal(t, conf.time_step),
-                    tf.equal(tf.math.floormod(lib_snn.model.train_counter, conf.accumulate_iteration), 0)
-                )
-
-                def finalize_avg_g_4():
-                    self.sum_g_4.assign_add(grad_ret_flatten),
-                    self.count_g_4.assign_add(1.0)
-                    avg = tf.math.divide_no_nan(self.sum_g_4, self.count_g_4)
-                    with tf.control_dependencies([
-                        self.avg_g_4.assign(avg),
-                        self.sum_g_4.assign(tf.zeros_like(self.sum_g_4)),
-                        self.count_g_4.assign(0.0)
-                    ]):
-                        return tf.constant(0.0)
-
-                tf.cond(finalize_avg_g_4_cond,
-                        finalize_avg_g_4,
-                        lambda: tf.constant(0.))
+                # accumulate_sum_effective_rate= tf.logical_and(
+                #     tf.equal(t, conf.time_step),
+                #     tf.equal(tf.math.floormod(lib_snn.model.train_counter,conf.accumulate_iteration), 0)
+                # )
+                #
+                # def accumulate_effective_grad_rate():
+                #     cur_effective_grad_rate = non_zero_gradient_rate(grad_ret_flatten)
+                #     with tf.control_dependencies([
+                #         self.sum_effective_grad_rate.assign_add(cur_effective_grad_rate),
+                #         self.count_effective_grad_rate.assign_add(1.0)
+                #     ]):
+                #         return tf.constant(0.0)
+                #
+                # tf.cond(accumulate_sum_effective_rate,
+                #         accumulate_effective_grad_rate,
+                #         lambda: tf.constant(0.))
+                # ############################################
+                # #### average_t4_gradient_in_last_epoch ####
+                # finalize_avg_effective_rate_cond = tf.logical_and(
+                #     tf.equal(t, conf.time_step),
+                #     tf.equal(tf.math.floormod(lib_snn.model.train_counter, conf.accumulate_iteration), 0)
+                # )
+                #
+                # def finalize_avg_effective_grad_rate():
+                #     cur_effective_grad_rate = non_zero_gradient_rate(grad_ret_flatten)
+                #     self.sum_effective_grad_rate.assign_add(cur_effective_grad_rate),
+                #     self.count_effective_grad_rate.assign_add(1.0)
+                #     avg = tf.math.divide_no_nan(self.sum_effective_grad_rate, self.count_effective_grad_rate)
+                #     with tf.control_dependencies([
+                #         self.avg_effective_grad_rate.assign(avg),
+                #         self.sum_effective_grad_rate.assign(0.0),
+                #         self.count_effective_grad_rate.assign(0.0)
+                #     ]):
+                #         return tf.constant(0.0)
+                #
+                # tf.cond(finalize_avg_effective_rate_cond,
+                #         finalize_avg_effective_grad_rate,
+                #         lambda: tf.constant(0.))
                 ###########################################
                 common_cond = tf.logical_and(
                     tf.equal(tf.math.floormod(lib_snn.model.train_counter - 1, conf.accumulate_iteration), 0),
@@ -2052,8 +2143,11 @@ class Neuron(tf.keras.layers.Layer):
 
                 if conf.sparsity_aware_gradient_consistency == True:
                     update_beta_t4 = tf.logical_and(tf.equal(t, 4), common_cond)
+                    # _ = tf.cond(update_beta_t4,
+                    #             lambda: find_beta_update_t4(self.beta[t - 1], self.avg_effective_grad_rate),
+                    #             lambda: tf.constant(0.))
                     _ = tf.cond(update_beta_t4,
-                                lambda: find_beta_update(self.beta[t - 1], self.avg_g_4),
+                                lambda: find_beta_update_t4(self.beta[t - 1]),
                                 lambda: tf.constant(0.))
 
                 if conf.temporal_gradient_consistency == True:
@@ -2088,7 +2182,7 @@ class Neuron(tf.keras.layers.Layer):
                             lambda: tf.constant(0.))
 
                 log_common_cond = tf.logical_and(
-                    tf.equal(tf.math.floormod(lib_snn.model.train_counter - 1, 2500), 0),
+                    tf.equal(tf.math.floormod(lib_snn.model.train_counter - 1, 500), 0),
                     tf.greater(lib_snn.model.train_counter, 1)
                 )
 
@@ -2098,62 +2192,53 @@ class Neuron(tf.keras.layers.Layer):
                 log_update_beta_t1 = tf.logical_and(tf.equal(t, 1), log_common_cond)
 
                 if conf.debug_surro_grad:
-                    def write_surro_grad_t4(beta_val, sim_val, sparse_val, mix_val, tag, sim_val_t4):
+                    def write_surro_grad_t4(beta_val, sim_val, tag):
                         with self.writer.as_default(step=lib_snn.model.train_counter):
-                            tf.summary.scalar(f"{self.name}_beta/beta_{tag}", beta_val)
-                            tf.summary.scalar(f"{self.name}_sim/cos_sim_{tag}", sim_val)
-                            tf.summary.scalar(f"{self.name}_sim/cos_sim_t4_{tag}", sim_val_t4)
-                            tf.summary.scalar(f"{self.name}_sim/non_zero_gradient_rate_{tag}", sparse_val)
-                            tf.summary.scalar(f"{self.name}_sim/similarity_{tag}", mix_val)
+                            # print(lib_snn.model.train_counter)
+                            tf.summary.scalar(f'{self.name}_beta/beta_{tag}', beta_val)
+                            tf.summary.scalar(f'{self.name}_cv/_{tag}', sim_val)
                             self.writer.flush()
 
-                    def write_surro_grad(beta_val, sim_val, tag, sim_val_t4):
-                        tf.summary.scalar(f"{self.name}_beta/beta_{tag}", beta_val)
-                        tf.summary.scalar(f"{self.name}_sim/cos_sim_{tag}", sim_val)
-                        tf.summary.scalar(f"{self.name}_sim/cos_sim_t4_{tag}", sim_val_t4)
-                        self.writer.flush()
+                    def write_surro_grad(beta_val, sim_val, tag):
+                        with self.writer.as_default(step=lib_snn.model.train_counter):
+                            tf.summary.scalar(f'{self.name}_beta/beta_{tag}', beta_val)
+                            tf.summary.scalar(f'{self.name}_sim/cos_sim_{tag}', sim_val)
+                            self.writer.flush()
 
-                    cosine_similarity_t4 = similarity(grad_ret_flatten, self.avg_g_4)
-                    non_zero_gradient_rate_t4 = similarity_t4(grad_ret_flatten, self.avg_g_4, 0)
-                    mix_t4 = similarity_t4(grad_ret_flatten, self.avg_g_4)
+                    non_zero_gradient_rate_t4 = similarity_t4(grad_ret_flatten)
                     tf.cond(log_update_beta_t4,
                             lambda: tf.py_function(write_surro_grad_t4,
-                                                   [self.beta[3], cosine_similarity_t4, non_zero_gradient_rate_t4,
-                                                    mix_t4, 't4', cosine_similarity_t4], []),
+                                                   [self.beta[3], non_zero_gradient_rate_t4, 't4'], []),
                             lambda: tf.no_op())
 
                     cosine_similarity_t3 = similarity(grad_ret_flatten, self.pre_g[2])
                     tf.cond(log_update_beta_t3,
                             lambda: tf.py_function(write_surro_grad,
-                                                   [self.beta[2], cosine_similarity_t3, 't3', cosine_similarity_t3],
+                                                   [self.beta[2], cosine_similarity_t3, 't3'],
                                                    []),
                             lambda: tf.no_op())
 
                     cosine_similarity_t2 = similarity(grad_ret_flatten, self.pre_g[1])
-                    cosine_similarity_t2_t4 = similarity(grad_ret_flatten, self.pre_g[2])
                     tf.cond(log_update_beta_t2,
                             lambda: tf.py_function(write_surro_grad,
-                                                   [self.beta[1], cosine_similarity_t2, 't2', cosine_similarity_t2_t4],
+                                                   [self.beta[1], cosine_similarity_t2, 't2'],
                                                    []),
                             lambda: tf.no_op())
 
                     cosine_similarity_t1 = similarity(grad_ret_flatten, self.pre_g[0])
-                    cosine_similarity_t1_t4 = similarity(grad_ret_flatten, self.pre_g[2])
                     tf.cond(log_update_beta_t1,
                             lambda: tf.py_function(write_surro_grad,
-                                                   [self.beta[0], cosine_similarity_t1, 't1', cosine_similarity_t1_t4],
+                                                   [self.beta[0], cosine_similarity_t1, 't1'],
                                                    []),
                             lambda: tf.no_op())
 
-            else :
-                if conf.debug_surro_grad:
                     if conf.gradient_sparsity_in_neuron:
-                        target_names = ['n_conv1', 'n_conv2', 'n_conv3', 'n_conv4', 'n_conv5_2', 'n_fc1', 'n_fc2']
+                        target_names = ['n_conv1', 'n_conv2', 'n_conv3', 'n_conv4', 'n_conv5','n_conv5_2', 'n_fc1', 'n_fc2']
 
                         name_cond = tf.reduce_any([tf.equal(self.name, n) for n in target_names])
 
                         log_common_cond = tf.logical_and(
-                            tf.equal(tf.math.floormod(lib_snn.model.train_counter - 1, 10), 0),
+                            tf.equal(tf.math.floormod(lib_snn.model.train_counter - 1, 100), 0),
                             tf.greater(lib_snn.model.train_counter, 1)
                         )
 
@@ -2186,6 +2271,7 @@ class Neuron(tf.keras.layers.Layer):
                             grad_mean = tf.reduce_mean(grad_ret_flatten)
                             grad_abs_mean = tf.reduce_mean(tf.abs(grad_ret_flatten))
                             grad_variance = tf.math.reduce_variance(grad_ret_flatten)
+                            cv = grad_variance / grad_abs_mean
                             grad_max = tf.reduce_max(grad_ret_flatten)
                             grad_min = tf.reduce_min(grad_ret_flatten)
 
@@ -2205,6 +2291,7 @@ class Neuron(tf.keras.layers.Layer):
                                 tf.summary.scalar(f'{self.name}_gradient/variance_{t}', grad_variance)
                                 tf.summary.scalar(f'{self.name}_gradient/max_{t}', grad_max)
                                 tf.summary.scalar(f'{self.name}_gradient/min_{t}', grad_min)
+                                tf.summary.scalar(f'{self.name}_gradient/cv_{t}', cv)
 
                                 tf.summary.scalar(f'{self.name}_grad_gsnr/{t}', grad_gsnr)
                                 self.writer.flush()
@@ -2216,11 +2303,78 @@ class Neuron(tf.keras.layers.Layer):
                             lambda: tf.no_op()
                         )
 
+            else :
+                if conf.debug_surro_grad:
+                    if conf.gradient_sparsity_in_neuron:
+                        target_names = ['n_conv1', 'n_conv2', 'n_conv3', 'n_conv4', 'n_conv5_2', 'n_fc1', 'n_fc2']
 
+                        name_cond = tf.reduce_any([tf.equal(self.name, n) for n in target_names])
 
+                        log_common_cond = tf.logical_and(
+                            tf.equal(tf.math.floormod(lib_snn.model.train_counter - 1, 10), 0),
+                            tf.greater(lib_snn.model.train_counter, 1)
+                        )
 
+                        condition = tf.logical_and(log_common_cond, name_cond)
 
+                        def log_gradient_tensorboard(grad_ret_flatten, upstream, f_fire):
+                            def effective_gradient(grad_ret_flatten):
+                                gradient_mask = tf.cast(tf.not_equal(grad_ret_flatten, 0.0), tf.float32)
+                                non_zero_gradient_rate = tf.reduce_mean(gradient_mask)
+                                return non_zero_gradient_rate
+                            #
+                            # def gsnr(grad_ret_flatten):
+                            #     grad_mean = tf.reduce_mean(grad_ret_flatten)
+                            #     grad_variance = tf.math.reduce_variance(grad_ret_flatten)
+                            #     gsnr = tf.square(grad_mean) / (grad_variance + 1e-8)
+                            #     return tf.reduce_mean(gsnr)
+                            #
+                            f_fire_float = tf.cast(f_fire, tf.float32)
+                            firing_rate = tf.reduce_mean(f_fire_float)
+                            #
+                            effective_grad_rate = effective_gradient(grad_ret_flatten)
+                            # grad_gsnr = gsnr(grad_ret_flatten)
+                            #
+                            # upstream_mean = tf.reduce_mean(upstream)
+                            # upstream_abs_mean = tf.reduce_mean(tf.abs(upstream))
+                            # upstream_variance = tf.math.reduce_variance(upstream)
+                            # upstream_max = tf.reduce_max(upstream)
+                            # upstream_min = tf.reduce_min(upstream)
+                            #
+                            # grad_mean = tf.reduce_mean(grad_ret_flatten)
+                            # grad_abs_mean = tf.reduce_mean(tf.abs(grad_ret_flatten))
+                            # grad_variance = tf.math.reduce_variance(grad_ret_flatten)
+                            # grad_max = tf.reduce_max(grad_ret_flatten)
+                            # grad_min = tf.reduce_min(grad_ret_flatten)
 
+                            with self.writer.as_default(step=lib_snn.model.train_counter):
+                                tf.summary.scalar(f'{self.name}_beta/{t}', self.beta[t-1])
+                                tf.summary.scalar(f'{self.name}_firing_rate/{t}', firing_rate)
+                                tf.summary.scalar(f'{self.name}_effective_grad_rate/{t}' , effective_grad_rate)
+                                tf.summary.histogram(f'{self.name}_vmem/{t}', vmem)
+                                tf.summary.histogram(f'{self.name}_spike/{t}', spike)
+
+                                # tf.summary.scalar(f'{self.name}_activation_error/mean_{t}', upstream_mean)
+                                # tf.summary.scalar(f'{self.name}_activation_error/abs_mean_{t}', upstream_abs_mean)
+                                # tf.summary.scalar(f'{self.name}_activation_error/variance_{t}', upstream_variance)
+                                # tf.summary.scalar(f'{self.name}_activation_error/max_{t}', upstream_max)
+                                # tf.summary.scalar(f'{self.name}_activation_error/min_{t}', upstream_min)
+                                #
+                                # tf.summary.scalar(f'{self.name}_gradient/mean_{t}', grad_mean)
+                                # tf.summary.scalar(f'{self.name}_gradient/abs_mean_{t}', grad_abs_mean)
+                                # tf.summary.scalar(f'{self.name}_gradient/variance_{t}', grad_variance)
+                                # tf.summary.scalar(f'{self.name}_gradient/max_{t}', grad_max)
+                                # tf.summary.scalar(f'{self.name}_gradient/min_{t}', grad_min)
+                                #
+                                # tf.summary.scalar(f'{self.name}_grad_gsnr/{t}', grad_gsnr)
+                                self.writer.flush()
+                            return tf.no_op()
+
+                        tf.cond(
+                            condition,
+                            lambda: log_gradient_tensorboard(grad_ret_flatten, upstream, f_fire),
+                            lambda: tf.no_op()
+                        )
             # grad_ret = upstream * du_do
             # grad_ret = grad_ret / (tf.norm(grad_ret) + 1e-8)
             # grad_ret_flatten = tf.reshape(grad_ret, [-1])
@@ -2865,27 +3019,29 @@ class Neuron(tf.keras.layers.Layer):
         #
         spike, vmem_gen = self.input_spike_gen(inputs, vmem, t)
 
-        def plot_spike(spike_tensor):
-            spike = spike_tensor.numpy()
-            batch_index = 0
-            on_frame = spike[batch_index, ..., 0]
-            off_frame = spike[batch_index, ..., 1]
-
-            on_frame = (on_frame - on_frame.min()) / (on_frame.max() - on_frame.min() + 1e-6)
-            off_frame = (off_frame - off_frame.min()) / (off_frame.max() - off_frame.min() + 1e-6)
-
-            rgb = np.zeros((48, 48, 3))
-            rgb[..., 0] = on_frame
-            rgb[..., 1] = off_frame
-
-            plt.figure(figsize=(4, 4))
-            plt.imshow(rgb)
-            plt.title("Spike Sample 0")
-            plt.axis('off')
-            plt.show()
-            return 0
-
-        _ = tf.py_function(plot_spike, [spike], Tout=[tf.int32])
+        # def plot_spike(spike_tensor):
+        #     spike = spike_tensor.numpy()
+        #     batch_index = 0
+        #     on_frame = spike[batch_index, ..., 0]
+        #     off_frame = spike[batch_index, ..., 1]
+        #
+        #     on_frame = (on_frame - on_frame.min()) / (on_frame.max() - on_frame.min() + 1e-6)
+        #     off_frame = (off_frame - off_frame.min()) / (off_frame.max() - off_frame.min() + 1e-6)
+        #
+        #     rgb = np.zeros((48, 48, 3))
+        #     rgb[..., 0] = on_frame
+        #     rgb[..., 1] = off_frame
+        #
+        #
+        #     import matplotlib.pyplot as plt
+        #     plt.figure(figsize=(4, 4))
+        #     plt.imshow(rgb)
+        #     plt.title("Spike Sample 0")
+        #     plt.axis('off')
+        #     plt.show()
+        #     return 0
+        #
+        # _ = tf.py_function(plot_spike, [spike], Tout=[tf.int32])
         #self.count_spike(t)
         return spike, vmem_gen
 
@@ -3012,7 +3168,12 @@ class Neuron(tf.keras.layers.Layer):
 
     def run_type_hid(self, inputs, vmem, t, training):
         vmem_integ = self.integration(inputs, vmem, t)
-
+        # rand = tf.random.normal(vmem_integ.shape, mean=0, stddev=0.3)
+        # vmem_integ = vmem_integ + rand
+        # noise_pr = 0.5
+        # rand = tf.random.uniform(vmem_integ.shape, minval=0.0, maxval=1.0)
+        # f_noise_del = tf.less(rand, tf.constant(noise_pr, shape=vmem_integ.shape))
+        # vmem_integ = tf.where(f_noise_del,vmem_integ-0.2,vmem_integ)
         if self.n_type=='LIF':
             vmem_leak = self.leak(vmem_integ, t)
         else:
@@ -3020,6 +3181,20 @@ class Neuron(tf.keras.layers.Layer):
 
         #print(vmem_leak)
         fire, vmem_fire = self.fire(vmem_leak,t)
+
+
+        # #############yongjin_test##############
+        # if self.n_type=='LIF':
+        #     vmem_leak = self.leak(vmem, t)
+        # else:
+        #     vmem_leak = vmem
+        #
+        # vmem_integ = self.integration(inputs, vmem_leak, t)
+        #
+        # fire, vmem_fire = self.fire(vmem_integ, t)
+        #####################################
+
+
 
         #self.out = fire
         #self.count_spike(t)
@@ -3030,10 +3205,18 @@ class Neuron(tf.keras.layers.Layer):
         #fire = fire + noise
 
         # deletion noise
-        #noise_pr = 0.01
-        #rand = tf.random.uniform(fire.shape, minval=0.0, maxval=1.0)
-        #f_noise_del = tf.less(rand, tf.constant(noise_pr, shape=fire.shape))
-        #fire = tf.where(f_noise_del,tf.zeros(fire.shape),fire)
+        # noise_pr = 0.2
+        # rand = tf.random.uniform(fire.shape, minval=0.0, maxval=1.0)
+        # f_noise_del = tf.less(rand, tf.constant(noise_pr, shape=fire.shape))
+        # fire = tf.where(f_noise_del,tf.zeros(fire.shape),fire)
+
+        # drop_ratio = 0.1
+        # spike_indices = tf.where(tf.equal(fire,1))
+        # spike_count = tf.shape(spike_indices)[0]
+        # delete_count = tf.cast(tf.floor(tf.cast(spike_count,tf.float32)*drop_ratio),tf.int32)
+        # shuffled = tf.random.shuffle(spike_indices)
+        # delete_indices = shuffled[:delete_count]
+        # fire = tf.tensor_scatter_nd_update(fire, indices=delete_indices, updates = tf.zeros([delete_count], dtype=fire.dtype))
 
 
         return fire, vmem_fire

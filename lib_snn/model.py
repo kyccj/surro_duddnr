@@ -1809,8 +1809,8 @@ class Model(tf.keras.Model):
                     for name in layer_names:
                         if gv[1].name == name:
                             cur_grad_flat = tf.reshape(gv[0], [-1])
-                            accum_grad_flat = tf.reshape(self.gradients[i], [-1])
-                            diff = accum_grad_flat - cur_grad_flat
+                            bef_grad_flat = tf.reshape(self.gradients[i], [-1])
+                            diff = bef_grad_flat - cur_grad_flat
 
                             effective_grad_rate = effective_gradient(cur_grad_flat)
 
@@ -1845,6 +1845,7 @@ class Model(tf.keras.Model):
                                 tf.summary.scalar(f'{gv[1].name}_grad_gsnr_model', grad_gsnr)
 
                                 self.writer.flush()
+                            self.gradients[i].assign(gv[0])
                 return tf.no_op()
 
             condition = tf.logical_and(
@@ -2147,10 +2148,9 @@ class Model(tf.keras.Model):
 
                 # younguk
                 if conf.predictiveness_in_model :
-                    layer_names = ["predictions/kernel:0", "fc2/kernel:0", "fc1/kernel:0", "conv5_2/kernel:0",
-                                   "conv5_1/kernel:0", "conv5/kernel:0", "conv4_2/kernel:0", "conv4_1/kernel:0",
-                                   "conv4/kernel:0", "conv3_2/kernel:0", "conv3_1/kernel:0", "conv3/kernel:0",
-                                   "conv2_1/kernel:0", "conv2/kernel:0", "conv1_1/kernel:0", "conv1/kernel:0"]
+                    layer_names = ["fc2/kernel:0", "fc1/kernel:0", "conv5_2/kernel:0",
+                                    "conv5/kernel:0",  "conv4/kernel:0",  "conv3/kernel:0",
+                                    "conv2/kernel:0", "conv1/kernel:0"]
 
 
                     def predictiveness_model(gv):
@@ -2177,7 +2177,7 @@ class Model(tf.keras.Model):
                     )
 
                 if conf.gradient_sparsity_in_model :
-                    layer_names = ["predictions/kernel:0", "fc2/kernel:0", "fc1/kernel:0", "conv5_2/kernel:0",
+                    layer_names = ["predictions/kernel:0", "fc2/kernel:0", "fc1/kernel:0", "conv5_2/kernel:0", "conv5/kernel:0",
                                    "conv4/kernel:0", "conv3/kernel:0", "conv2/kernel:0", "conv1/kernel:0"]
 
                     def log_gradient_tensorboard_in_model(gv):
@@ -2233,10 +2233,11 @@ class Model(tf.keras.Model):
                                         tf.summary.scalar(f'{gv[1].name}_grad_gsnr_model', grad_gsnr)
 
                                         self.writer.flush()
+                                    self.gradients[i].assign(gv[0])
                         return tf.no_op()
 
                     condition = tf.logical_and(
-                        tf.equal(tf.math.floormod(self._train_counter - 1, 10), 0),
+                        tf.equal(tf.math.floormod(self._train_counter - 1, 500), 0),
                         tf.greater(lib_snn.model.train_counter, 1)
                     )
 
@@ -3476,37 +3477,20 @@ class Model(tf.keras.Model):
                 if node.is_input:
 
                     _input = tensor_dict[x_id][0]
-                    #args, kwargs = node.map_arguments(tensor_dict)
-
-                    glb_t.reset()
-                    ####origin
-                    # layer_out = tf.TensorArray(
-                    #     dtype=tf.float32,
-                    #     size=self.conf.time_step,
-                    #     element_shape=_input.shape,
-                    #     clear_after_read=False,
-                    #     tensor_array_name=tensor_array_name)
-                    # for t in range(1,self.conf.time_step+1):
-                    #     if conf.input_data_time_dim:    # event data
-                    #         _input_t = _input[:,t-1,:,:,:]
-                    #     else:   # static image
-                    #         _input_t = _input
-                    #     layer_out = layer_out.write(t-1,_input)
-                    #     glb_t()
-                        #########
                     if conf.input_data_time_dim:
-                        element_shape = [_input.shape[0], _input.shape[2], _input.shape[3], _input.shape[4]]
+                        _input_t_shape = _input.shape[0]+_input.shape[2:]
                     else:
-                        element_shape = _input.shape
+                        _input_t_shape = _input.shape
 
                     layer_out = tf.TensorArray(
                         dtype=tf.float32,
                         size=self.conf.time_step,
-                        element_shape=element_shape,
+                        element_shape=_input_t_shape,
                         clear_after_read=False,
                         tensor_array_name=tensor_array_name
                     )
 
+                    glb_t.reset()
                     for t in range(1, self.conf.time_step + 1):
                         if conf.input_data_time_dim:    # event data
                             _input_t = _input[:,t-1,:,:,:]

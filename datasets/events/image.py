@@ -241,7 +241,7 @@ def as_frames_for_nda(
     if conf.model == 'Spikformer':
         images = images
     else:
-        images = tf.image.resize(images,(s,s),method='bilinear')   # VGG, ResNet
+        images = tf.image.resize(images,(s,s),method='nearest')   # VGG, ResNet
 
     images = tf.image.random_flip_left_right(images)
     labels = tf.one_hot(labels, num_class)

@@ -7,6 +7,9 @@ from datasets.events.image import as_frames_for_nda
 from datasets.events.image import as_frame
 from events_tfds.vis.anim import animate_frames
 import tensorflow_addons as tfa
+import tensorflow_probability as tfp
+import math
+
 
 
 
@@ -82,57 +85,97 @@ def load():
 
     if conf.data_aug_mix == 'nda' :
         @tf.function
-        def nda(images, labels):
-            def augment_single_frame(img):
-                # roll
-                def roll_fn():
-                    dx = tf.random.uniform([], -3, 4, dtype=tf.int32)
-                    dy = tf.random.uniform([], -3, 4, dtype=tf.int32)
-                    return tf.roll(img, shift=[dx, dy], axis=[0, 1])
+        def nda_cutmix(images, labels, alpha=1.0):
+            choice = tf.random.uniform([], 0, 3, dtype=tf.int32)
 
-                # rotate
-                def rotate_fn():
-                    angle = tf.random.uniform([], -15, 15) * 3.141592 / 180.0
-                    return tfa.image.rotate(img, angles=angle, interpolation='BILINEAR')
+            def flatten_bt(x):
+                shape = tf.shape(x)
+                return tf.reshape(x, [-1, shape[2], shape[3], shape[4]]), shape
 
-                # shear
-                def shear_fn():
-                    level = tf.random.uniform([], -15.0, 15.0)
-                    rad = level * 3.141592 / 180.0
-                    transform = [1.0, tf.math.tan(rad), 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]
-                    return tfa.image.transform(img, transform, interpolation='BILINEAR')
+            def unflatten_bt(x_flat, orig_shape):
+                return tf.reshape(x_flat, orig_shape)
 
-                # cutout
-                def cutout_fn():
-                    return tfa.image.random_cutout(img[tf.newaxis, ...], mask_size=(16, 16))[0]
+            def roll_all():
+                dx = tf.random.uniform([], -3, 4, dtype=tf.int32)
+                dy = tf.random.uniform([], -3, 4, dtype=tf.int32)
+                return tf.roll(images, shift=[dx, dy], axis=[2, 3])
 
-                choice = tf.random.uniform([], 0, 4, dtype=tf.int32)
-                img = tf.cond(tf.equal(choice, 0), roll_fn, lambda: img)
-                img = tf.cond(tf.equal(choice, 1), rotate_fn, lambda: img)
-                img = tf.cond(tf.equal(choice, 2), shear_fn, lambda: img)
-                img = tf.cond(tf.equal(choice, 3), cutout_fn, lambda: img)
-                return img
+            def rotate_all():
+                angle = tf.random.uniform([], -15., 15.) * math.pi / 180.0
+                flat, shp = flatten_bt(images)
+                flat = tfa.image.rotate(flat, angles=angle, interpolation='BILINEAR')
+                return unflatten_bt(flat, shp)
 
-            images = tf.map_fn(lambda sample: tf.map_fn(augment_single_frame, sample), images)
-            return images, labels
+            def shear_all():
+                level = tf.random.uniform([], -15., 15.)
+                rad = level * math.pi / 180.0
+                transform = [1.0, tf.math.tan(rad), 0.0,
+                             0.0, 1.0, 0.0,
+                             0.0, 0.0]
+                flat, shp = flatten_bt(images)
+                flat = tfa.image.transform(flat, transform, interpolation='BILINEAR')
+                return unflatten_bt(flat, shp)
 
+            images = tf.case([(tf.equal(choice, 0), roll_all),
+                              (tf.equal(choice, 1), rotate_all)],
+                             default=shear_all, exclusive=True)
+
+            B, T, H, W, C = tf.unstack(tf.shape(images))
+
+            lam = tfp.distributions.Beta(alpha, alpha).sample([B])
+            lam_img = tf.reshape(lam, [-1, 1, 1, 1, 1])
+            lam_lbl = tf.reshape(lam, [-1, 1])
+
+            idx = tf.random.shuffle(tf.range(B))
+            img_shuf = tf.gather(images, idx)
+            label_shuf = tf.gather(labels, idx)
+
+            r_x = tf.random.uniform([B], 0, W, tf.int32)
+            r_y = tf.random.uniform([B], 0, H, tf.int32)
+            r_w = tf.cast(tf.sqrt(1. - lam) * tf.cast(W, tf.float32), tf.int32)
+            r_h = tf.cast(tf.sqrt(1. - lam) * tf.cast(H, tf.float32), tf.int32)
+
+            x1 = tf.clip_by_value(r_x - r_w // 2, 0, W)
+            y1 = tf.clip_by_value(r_y - r_h // 2, 0, H)
+            x2 = tf.clip_by_value(r_x + r_w // 2, 0, W)
+            y2 = tf.clip_by_value(r_y + r_h // 2, 0, H)
+
+            def _apply_cutmix(i, img, img_s):
+                yy1, yy2, xx1, xx2 = y1[i], y2[i], x1[i], x2[i]
+                paddings = [[0, 0],
+                            [yy1, H - yy2],
+                            [xx1, W - xx2],
+                            [0, 0]]
+                patch = tf.pad(img_s[:, yy1:yy2, xx1:xx2, :],
+                               paddings, 'CONSTANT')
+                return tf.where(patch != 0, patch, img)
+
+            mix_imgs = tf.map_fn(
+                lambda tup: _apply_cutmix(*tup),
+                (tf.range(B), images, img_shuf),
+                fn_output_signature=images.dtype)
+
+            lam_area = 1. - (tf.cast((x2 - x1) * (y2 - y1), tf.float32) /
+                             tf.cast(H * W, tf.float32))
+            lam_area = tf.reshape(lam_area, [-1, 1])
+
+            mix_labels = lam_area * labels + (1. - lam_area) * label_shuf
+            return mix_imgs, mix_labels
 
         train_ds = train_ds.map(
             lambda events, labels: as_frames_for_nda(events, labels, shape=image_shape, num_frames=num_frames))
-
-        sample = next(iter(train_ds))
-        images, labels = sample
-        print(f"Shape of the first image: {images.shape}")
+        # sample = next(iter(train_ds))
+        # images, labels = sample
+        # print(f"Shape of the first image: {images.shape}")
         train_ds = train_ds.batch(batch_size, drop_remainder=True)
-        train_ds = train_ds.map(lambda images, labels: nda(images, labels))
-
+        train_ds = train_ds.map(lambda images, labels: nda_cutmix(images, labels))
     else :
         train_ds = train_ds.map(
             lambda events, labels: as_frames(events, labels, shape=image_shape, num_frames=num_frames,
                                                      augmentation=True))
 
 
-    train_ds = train_ds.batch(batch_size,drop_remainder=True)
+        train_ds = train_ds.batch(batch_size,drop_remainder=True)
     train_ds = train_ds.prefetch(num_parallel)
 
     #valid_ds = valid_ds.map(lambda events,labels: as_frame(events,labels,shape=image_shape))

@@ -433,6 +433,7 @@ flags.DEFINE_string('root_model_best', '/home/sspark/Models/CNN', 'root model be
 flags.DEFINE_string('root_model_save', './models_ckpt', 'root model save')
 #flags.DEFINE_string('root_model_load', '/home/sspark/Projects/00_SNN/models', 'root model load')
 flags.DEFINE_string('root_model_load', './models_ckpt', 'root model load')
+flags.DEFINE_string('LS_save', './models_ckpt', 'loss landscape fig save path')
 #flags.DEFINE_string('root_model_load', '/home/sspark/Models/CNN', 'root model load')
 flags.DEFINE_integer('load_model_epoch',None,'load model trained epoch')
 
@@ -936,5 +937,7 @@ flags.DEFINE_bool('plot_predictiveness_in_neurons', False, 'plot predictiveness 
 flags.DEFINE_bool('sparsity_aware_gradient_consistency', False, 'adaptive surrogate gradient SGC')
 flags.DEFINE_bool('temporal_gradient_consistency', False, 'adaptive surrogate gradient TGC')
 #
+
+flags.DEFINE_bool('loss_landscape', False, 'save loss landscape')
 conf=flags.FLAGS
 conf(sys.argv)
