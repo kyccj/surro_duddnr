@@ -11,12 +11,11 @@ from matplotlib.scale import FuncScaleLog
 os.environ['NCCL_P2P_DISABLE']='1'
 os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
 # os.environ["CUDA_VISIBLE_DEVICES"]="0"
-os.environ["CUDA_VISIBLE_DEVICES"]="1"
+os.environ["CUDA_VISIBLE_DEVICES"]="9"
 
 #
 from config import config
 conf = config.flags
-
 ##### training setting #####
 # conf.debug_mode = True
 # conf.verbose_snn_train = True
@@ -69,6 +68,13 @@ conf.regularizer=None
 conf.mix_off_iter = 500*200
 conf.mix_alpha = 0.5
 
+
+
+# Method
+# conf.rmp_en = 'True'
+# conf.rmp_k = 0.0005
+conf.im_en = 'True'
+conf.im_k = 0.001
 # data augmentation
 conf.randaug_en = True
 conf.randaug_mag = 0.9
@@ -87,7 +93,7 @@ conf.fire_surro_grad_func = 'boxcar_height_fix'
 # conf.fire_surro_grad_func = 'triangle'
 # conf.fire_surro_grad_func = 'triangle_height_fix'
 # conf.fire_surro_grad_func = 'asy'
-# conf.fire_surro_grad_func = 'asy_height_fix'
+conf.fire_surro_grad_func = 'asy_height_fix'
 
 
 # adaptive surrogate gradients
@@ -97,14 +103,19 @@ conf.adaptive_surrogate = True
 if conf.adaptive_surrogate == True :
     conf.sparsity_aware_gradient_consistency = True
     conf.temporal_gradient_consistency = True
-    conf.surro_grad_beth = 1.0
+    if conf.fire_surro_grad_func == 'boxcar_height_fix':
+        conf.surro_grad_beth = 0.5
+        conf.find_beta_high = 0.5
+    else:
+        conf.surro_grad_beth =1.0
+        conf.find_beta_high = 1.0
     conf.find_beta_low = 0.1
-    conf.find_beta_high = 1.0
+
     conf.train_beta_candidate_number = 100
     conf.test_beta_candidate_number_0 = 150
     conf.accumulate_iteration = 500*1  #iteration * epoch
 else :
-    conf.surro_grad_beth = 1.5
+    conf.surro_grad_beth = 0.5
 ##########
 
 ##########
@@ -126,10 +137,21 @@ if conf.predictiveness_in_model :
 # conf.root_model_save = f'./ICLR2026/baseline/{conf.fire_surro_grad_func}_beta={conf.surro_grad_beth}'
 # conf.root_model_save = f'./theo/Tri/2/'
 # conf.root_model_save = f'./theo/ASY/3/'
-conf.root_model_save = f'./ablation/SGV/2/'
-conf.root_model_save = f'./ablation/TGC/2/'
-conf.root_model_save = f'./ablation/SGV+TGC/2/'
-# conf.root_model_save = f'./Fig4/ours/4/'
+# conf.root_model_save = f'./ablation/SGV/2/'
+# conf.root_model_save = f'./ablation/TGC/2/'
+# conf.root_model_save = f'./ablation/SGV+TGC/2/'
+# conf.root_model_save = f'/mnt/hdd1/kyccj/ICLR/YC/rebuttal_ablation_new/base/model_ckpt_2/{conf.fire_surro_grad_func}_beta={conf.surro_grad_beth}'
+# conf.root_model_save = f'/mnt/hdd1/kyccj/ICLR/YC/rebuttal_ablation_new/SGV/model_ckpt_2/{conf.fire_surro_grad_func}_beta={conf.surro_grad_beth}'
+# conf.root_model_save = f'/mnt/hdd1/kyccj/ICLR/YC/rebuttal_ablation_new/TGC/model_ckpt_2/{conf.fire_surro_grad_func}_beta={conf.surro_grad_beth}'
+# conf.root_model_save = f'/mnt/hdd1/kyccj/ICLR/YC/rebuttal_ablation_new/SGV+TGC/model_ckpt_2/{conf.fire_surro_grad_func}_beta={conf.surro_grad_beth}'
+# conf.root_model_save = f'/mnt/hdd1/kyccj/ICLR/YC/rebuttal_ablation_new/ours/model_ckpt_2/{conf.fire_surro_grad_func}_beta={conf.surro_grad_beth}'
+# conf.root_model_save = f'/mnt/hdd1/kyccj/ICLR/YC/rebuttal_ablation_final/SGV/model_ckpt_8/{conf.fire_surro_grad_func}_beta={conf.surro_grad_beth}'
+conf.root_model_save = f'/mnt/hdd1/kyccj/ICLR/YC/rebuttal_ablation_final/TGC/model_ckpt_8/{conf.fire_surro_grad_func}_beta={conf.surro_grad_beth}'
+# conf.root_model_save = f'/mnt/hdd1/kyccj/ICLR/YC/rebuttal_ablation_final/SGV+TGC/model_ckpt_2/{conf.fire_surro_grad_func}_beta={conf.surro_grad_beth}'
+# conf.root_model_save = f'/mnt/hdd1/kyccj/ICLR/YC/rebuttal_ablation_final/ours/model_ckpt_2/{conf.fire_surro_grad_func}_beta={conf.surro_grad_beth}'
+conf.root_model_save = f'/mnt/hdd1/kyccj/ICLR/YC/rebuttal_rmp/ours/model_ckpt_5/{conf.fire_surro_grad_func}_beta={conf.surro_grad_beth}'
+conf.root_model_save = f'/mnt/hdd1/kyccj/ICLR/YC/rebuttal_im/ours/model_ckpt_5/{conf.fire_surro_grad_func}_beta={conf.surro_grad_beth}'
+
 # conf.root_model_save = f'./test'
 
 ##########

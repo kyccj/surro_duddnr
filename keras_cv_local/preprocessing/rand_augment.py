@@ -156,7 +156,7 @@ class RandAugment(RandomAugmentationPipeline):
         )
 
         color = cv_preprocessing.RandomColorDegeneration(**policy["color"], seed=seed)
-        contrast = cv_preprocessing.RandomContrast(**policy["contrast"], seed=seed)
+        contrast = cv_preprocessing.RandomContrast(**policy["contrast"], value_range=value_range,seed=seed)
         brightness = cv_preprocessing.RandomBrightness(
             **policy["brightness"], value_range=value_range, seed=seed
         )
